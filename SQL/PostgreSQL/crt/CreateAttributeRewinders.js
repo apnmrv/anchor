@@ -17,321 +17,382 @@ var anchor;
 while (anchor = schema.nextAnchor()) {
     var knot, attribute;
     while (attribute = anchor.nextAttribute()) {
+        var attrDDLs = attributeDDL(attribute, schemaMetadata);
+        var attributeAnchorReferenceColumnDDL =
+            toDdlExpr(attrDDL.attributeAnchorReferenceColumnNameQuoted, anchor.identity, notNullDDL);
         if(attribute.isHistorized()) {
 /*~
 -- Attribute posit rewinder -------------------------------------------------------------------------------------------
--- r$attribute.positName rewinding over changing time function
+-- $attrDDLs.attributePositRewinderName rewinding over changing time function
 -----------------------------------------------------------------------------------------------------------------------
-IF Object_ID('$attribute.capsule$.r$attribute.positName','IF') IS NULL
+CREATE FUNCTION $capsuleNameQuoted\.$attrDDLs.attributePositRewinderNameQuoted (
+    @changingTimepoint $attribute.timeRange = '$schema.EOT'::$attribute.timeRange
+)
+RETURNS TABLE (
+            $attrDDLs.attributeIdentityColumnDDL,
+            $attributeAnchorReferenceColumnDDL,
+            $(attribute.hasChecksum())? $attrDDLs.attributeChecksumColumnDDL,
+            $attrDDLs.attributeValueColumnDDL,
+            $attrDDLs.attributeChangingColumnDDL
+)
+AS \$$function\$$
 BEGIN
-    EXEC('
-    CREATE FUNCTION [$attribute.capsule].[r$attribute.positName] (
-        @changingTimepoint $attribute.timeRange = '$schema.EOT'
-    )
-    RETURNS TABLE WITH SCHEMABINDING AS RETURN
-    SELECT
-        $attribute.identityColumnName,
-        $attribute.anchorReferenceName,
-        $(attribute.hasChecksum())? $attribute.checksumColumnName,
-        $attribute.valueColumnName,
-        $attribute.changingColumnName
-    FROM
-        [$attribute.capsule].[$attribute.positName]
-    WHERE
-        $attribute.changingColumnName <= @changingTimepoint;
-    ');
-END
-GO
--- Attribute posit forwarder ------------------------------------------------------------------------------------------
--- f$attribute.positName forwarding over changing time function
------------------------------------------------------------------------------------------------------------------------
-IF Object_ID('$attribute.capsule$.f$attribute.positName','IF') IS NULL
-BEGIN
-    EXEC('
-    CREATE FUNCTION [$attribute.capsule].[f$attribute.positName] (
-        @changingTimepoint $attribute.timeRange = '$schema.EOT'
-    )
-    RETURNS TABLE WITH SCHEMABINDING AS RETURN
-    SELECT
-        $attribute.identityColumnName,
-        $attribute.anchorReferenceName,
-        $(attribute.hasChecksum())? $attribute.checksumColumnName,
-        $attribute.valueColumnName,
-        $attribute.changingColumnName
-    FROM
-        [$attribute.capsule].[$attribute.positName]
-    WHERE
-        $attribute.changingColumnName > @changingTimepoint;
-    ');
-END
-GO
--- Attribute annex rewinder -------------------------------------------------------------------------------------------
--- r$attribute.annexName rewinding over positing time function
------------------------------------------------------------------------------------------------------------------------
-IF Object_ID('$attribute.capsule$.r$attribute.annexName','IF') IS NULL
-BEGIN
-    EXEC('
-    CREATE FUNCTION [$attribute.capsule].[r$attribute.annexName] (
-        @positingTimepoint $schema.metadata.positingRange = '$schema.EOT'
-    )
-    RETURNS TABLE WITH SCHEMABINDING AS RETURN
-    SELECT
-        $(schema.METADATA)? $attribute.metadataColumnName,
-        $attribute.identityColumnName,
-        $attribute.positingColumnName,
-        $attribute.positorColumnName,
-        $attribute.reliabilityColumnName,
-        $attribute.reliableColumnName
-    FROM
-        [$attribute.capsule].[$attribute.annexName]
-    WHERE
-        $attribute.positingColumnName <= @positingTimepoint;
-    ');
-END
-GO
--- Attribute assembled rewinder ---------------------------------------------------------------------------------------
--- r$attribute.name rewinding over changing and positing time function
------------------------------------------------------------------------------------------------------------------------
-IF Object_ID('$attribute.capsule$.r$attribute.name','IF') IS NULL
-BEGIN
-    EXEC('
-    CREATE FUNCTION [$attribute.capsule].[r$attribute.name] (
-        @positor $schema.metadata.positorRange = 0,
-        @changingTimepoint $attribute.timeRange = '$schema.EOT',
-        @positingTimepoint $schema.metadata.positingRange = '$schema.EOT'
-    )
-    RETURNS TABLE WITH SCHEMABINDING AS RETURN
-    SELECT
-        $(schema.METADATA)? a.$attribute.metadataColumnName,
-        p.$attribute.identityColumnName,
-        a.$attribute.positingColumnName,
-        a.$attribute.positorColumnName,
-        a.$attribute.reliabilityColumnName,
-        a.$attribute.reliableColumnName,
-        p.$attribute.anchorReferenceName,
-        $(attribute.hasChecksum())? p.$attribute.checksumColumnName,
-        p.$attribute.valueColumnName,
-        p.$attribute.changingColumnName
-    FROM
-        [$attribute.capsule].[r$attribute.positName](@changingTimepoint) p
-    JOIN
-        [$attribute.capsule].[r$attribute.annexName](@positingTimepoint) a
-    ON
-        a.$attribute.identityColumnName = p.$attribute.identityColumnName
-    AND
-        a.$attribute.positorColumnName = @positor
-    AND
-        a.$attribute.positingColumnName = (
-            SELECT TOP 1
-                sub.$attribute.positingColumnName
-            FROM
-                [$attribute.capsule].[r$attribute.annexName](@positingTimepoint) sub
-            WHERE
-                sub.$attribute.identityColumnName = p.$attribute.identityColumnName
-            AND
-                sub.$attribute.positorColumnName = @positor
-            ORDER BY
-                sub.$attribute.positingColumnName DESC
-        )
-    ');
-END
-GO
--- Attribute assembled forwarder --------------------------------------------------------------------------------------
--- f$attribute.name forwarding over changing and rewinding over positing time function
------------------------------------------------------------------------------------------------------------------------
-IF Object_ID('$attribute.capsule$.f$attribute.name','IF') IS NULL
-BEGIN
-    EXEC('
-    CREATE FUNCTION [$attribute.capsule].[f$attribute.name] (
-        @positor $schema.metadata.positorRange = 0,
-        @changingTimepoint $attribute.timeRange = '$schema.EOT',
-        @positingTimepoint $schema.metadata.positingRange = '$schema.EOT'
-    )
-    RETURNS TABLE WITH SCHEMABINDING AS RETURN
-    SELECT
-        $(schema.METADATA)? a.$attribute.metadataColumnName,
-        p.$attribute.identityColumnName,
-        a.$attribute.positingColumnName,
-        a.$attribute.positorColumnName,
-        a.$attribute.reliabilityColumnName,
-        a.$attribute.reliableColumnName,
-        p.$attribute.anchorReferenceName,
-        $(attribute.hasChecksum())? p.$attribute.checksumColumnName,
-        p.$attribute.valueColumnName,
-        p.$attribute.changingColumnName
-    FROM
-        [$attribute.capsule].[f$attribute.positName](@changingTimepoint) p
-    JOIN
-        [$attribute.capsule].[r$attribute.annexName](@positingTimepoint) a
-    ON
-        a.$attribute.identityColumnName = p.$attribute.identityColumnName
-    AND
-        a.$attribute.positorColumnName = @positor
-    AND
-        a.$attribute.positingColumnName = (
-            SELECT TOP 1
-                sub.$attribute.positingColumnName
-            FROM
-                [$attribute.capsule].[r$attribute.annexName](@positingTimepoint) sub
-            WHERE
-                sub.$attribute.identityColumnName = p.$attribute.identityColumnName
-            AND
-                sub.$attribute.positorColumnName = @positor
-            ORDER BY
-                sub.$attribute.positingColumnName DESC
-        )
-    ');
-END
-GO
--- Attribute previous value -------------------------------------------------------------------------------------------
--- pre$attribute.name function for getting previous value
------------------------------------------------------------------------------------------------------------------------
-IF Object_ID('$attribute.capsule$.pre$attribute.name','FN') IS NULL
-BEGIN
-    EXEC('
-    CREATE FUNCTION [$attribute.capsule].[pre$attribute.name] (
-        @id $anchor.identity,
-        @positor $schema.metadata.positorRange = 0,
-        @changingTimepoint $attribute.timeRange = '$schema.EOT',
-        @positingTimepoint $schema.metadata.positingRange = '$schema.EOT'
-    )
-    RETURNS $(attribute.isKnotted())? $attribute.knot.identity : $attribute.dataRange
-    AS
-    BEGIN RETURN (
-        SELECT TOP 1
-            $(attribute.hasChecksum())? pre.$attribute.checksumColumnName : pre.$attribute.valueColumnName
+    RETURN QUERY
+        SELECT
+            $attrDDLs.attributeIdentityColumnNameQuoted,
+            $attrDDLs.attributeAnchorReferenceNameQuoted,
+            $(attribute.hasChecksum())? $attrDDLs.attributeChecksumColumnNameQuoted,
+            $attrDDLs.attributeValueColumnNameQuoted,
+            $attrDDLs.attributeChangingColumnNameQuoted
         FROM
-            [$attribute.capsule].[r$attribute.name](
+            $capsuleNameQuoted\.$attrDDLs.attributePositNameQuoted
+        WHERE
+            $attrDDLs.attributeChangingColumnNameQuoted <= @changingTimepoint;
+END;
+\$$function\$$
+LANGUAGE plpgsql;
+
+-- Attribute posit forwarder ------------------------------------------------------------------------------------------
+-- $attrDDLs.attributePositForwarderName forwarding over changing time function
+-----------------------------------------------------------------------------------------------------------------------
+CREATE FUNCTION $capsuleNameQuoted\.$attrDDLs.attributePositForwarderNameQuoted (
+    @changingTimepoint $attribute.timeRange = $schema.EOT::$attribute.timeRange
+)
+RETURNS TABLE (
+    $attrDDLs.attributeIdentityColumnDDL,
+    $attributeAnchorReferenceColumnDDL,
+    $(attribute.hasChecksum())? $attrDDLs.attributeChecksumColumnDDL,
+    $attrDDLs.attributeValueColumnDDL,
+    $attrDDLs.attributeChangingColumnDDL
+)
+AS \$$function\$$
+BEGIN
+    RETURN QUERY
+        SELECT
+            $attrDDLs.attributeIdentityColumnNameQuoted,
+            $attrDDLs.attributeAnchorReferenceNameQuoted,
+            $(attribute.hasChecksum())? $attrDDLs.attributeChecksumColumnNameQuoted,
+            $attrDDLs.attributeValueColumnNameQuoted,
+            $attrDDLs.attributeChangingColumnNameQuoted
+        FROM
+            $capsuleNameQuoted\.$attrDDLs.attributePositNameQuoted
+        WHERE
+            $attrDDLs.attributeChangingColumnNameQuoted > @changingTimepoint;
+END;
+\$$function\$$
+LANGUAGE plpgsql;
+
+-- Attribute annex rewinder -------------------------------------------------------------------------------------------
+-- $attrDDLs.attributeAnnexRewinderName rewinding over positing time function
+-----------------------------------------------------------------------------------------------------------------------
+CREATE FUNCTION $capsuleNameQuoted\.$attrDDLs.attributeAnnexRewinderNameQuoted (
+    @positingTimepoint $schemaMetadata.positingRange = $schema.EOT::$schemaMetadata.positingRange
+)
+RETURNS TABLE (
+    $(schema.METADATA)? $attrDDLs.attributeMetadataColumnDDL,
+    $attrDDLs.attributeIdentityColumnDDL,
+    $attrDDLs.attributePositingColumnDDL,
+    $attrDDLs.attributePositorColumnDDL,
+    $attrDDLs.attributeReliabilityColumnDDL,
+    $attrDDLs.attributeAssertionColumnDDL
+)
+AS \$$function\$$
+BEGIN
+    RETURN QUERY
+        SELECT
+            $(schema.METADATA)? $attrDDLs.attributeMetadataColumnNameQuoted,
+            $attrDDLs.attributeIdentityColumnNameQuoted,
+            $attrDDLs.attributePositingColumnNameQuoted,
+            $attrDDLs.attributePositorColumnNameQuoted,
+            $attrDDLs.attributeReliabilityColumnNameQuoted,
+            $attrDDLs.attributeAssertionColumnNameQuoted
+        FROM
+            $capsuleNameQuoted\.$attrDDLs.attributeAnnexNameQuoted
+        WHERE
+            $attrDDLs.attributePositingColumnNameQuoted <= @positingTimepoint;
+END;
+\$$function\$$
+LANGUAGE plpgsql;
+
+-- Attribute assembled rewinder ---------------------------------------------------------------------------------------
+-- $attrDDLs.attributeAssembledRewinderName rewinding over changing and positing time function
+-----------------------------------------------------------------------------------------------------------------------
+CREATE FUNCTION $capsuleNameQuoted\.$attrDDLs.attributeAssembledRewinderNameQuoted (
+    @positor $schemaMetadata.positorRange = 0,
+    @changingTimepoint $attribute.timeRange = '$schema.EOT',
+    @positingTimepoint $schemaMetadata.positingRange = '$schema.EOT'
+)
+RETURNS TABLE (
+    $(schema.METADATA)? $attrDDLs.attributeMetadataColumnDDL,
+    $attrDDLs.attributeIdentityColumnDDL,
+    $attrDDLs.attributePositingColumnDDL,
+    $attrDDLs.attributePositorColumnDDL,
+    $attrDDLs.attributeReliabilityColumnDDL,
+    $attrDDLs.attributeAssertionColumnDDL,
+    $attributeAnchorReferenceColumnDDL,
+    $(attribute.hasChecksum())? $attrDDLs.attributeChecksumColumnNameQuoted,
+    $attrDDLs.attributeValueColumnNameQuoted,
+    $attrDDLs.attributeChangingColumnNameQuoted
+)
+AS \$$function\$$
+BEGIN
+    RETURN QUERY
+        SELECT
+            $(schema.METADATA)? a.$attrDDLs.attributeMetadataColumnNameQuoted,
+            p.$attrDDLs.attributeIdentityColumnNameQuoted,
+            a.$attrDDLs.attributePositingColumnNameQuoted,
+            a.$attrDDLs.attributePositorColumnNameQuoted,
+            a.$attrDDLs.attributeReliabilityColumnNameQuoted,
+            a.$attrDDLs.attributeAssertionColumnNameQuoted,
+            p.$attrDDLs.attributeAnchorReferenceColumnNameQuoted,
+            $(attribute.hasChecksum())? p.$attrDDLs.attributeChecksumColumnNameQuoted,
+            p.$attrDDLs.attributeValueColumnDDL,
+            p.$attrDDLs.attributeChangingColumnDDL
+        FROM
+            $capsuleNameQuoted\.$attrDDLs.attributePositRewinderNameQuoted (@changingTimepoint) p
+        JOIN
+            $capsuleNameQuoted\.$attrDDLs.attributeAnnexRewinderNameQuoted (@positingTimepoint) a
+        ON
+            a.$attrDDLs.attributeIdentityColumnNameQuoted = p.$attrDDLs.attributeIdentityColumnNameQuoted
+        AND
+            a.$attrDDLs.attributePositorColumnNameQuoted = @positor
+        AND
+            a.$attrDDLs.attributePositingColumnNameQuoted = (
+                SELECT TOP 1
+                    sub.$attrDDLs.attributePositingColumnNameQuoted
+                FROM
+                    $capsuleNameQuoted\.$attrDDLs.attributeAnnexRewinderNameQuoted(@positingTimepoint) sub
+                WHERE
+                    sub.$attrDDLs.attributeIdentityColumnNameQuoted = p.$attrDDLs.attributeIdentityColumnNameQuoted
+                AND
+                    sub.$attrDDLs.attributePositorColumnNameQuoted = @positor
+                ORDER BY
+                    sub.$attrDDLs.attributePositingColumnNameQuoted DESC
+            );
+END;
+\$$function\$$
+LANGUAGE plpgsql;
+
+-- Attribute assembled forwarder --------------------------------------------------------------------------------------
+-- $attrDDLs.attributeAssembledForwarderName forwarding over changing and rewinding over positing time function
+-----------------------------------------------------------------------------------------------------------------------
+CREATE FUNCTION $capsuleNameQuoted\.$attrDDLs.attributeAssembledForwarderNameQuoted (
+    @positor $schemaMetadata.positorRange = 0,
+    @changingTimepoint $attribute.timeRange = '$schema.EOT',
+    @positingTimepoint schemaMetadata.positingRange = '$schema.EOT'
+)
+RETURNS TABLE (
+    $(schema.METADATA)? $attrDDLs.attributeMetadataColumnDDL,
+    $attrDDLs.attributeIdentityColumnDDL,
+    $attrDDLs.attributePositingColumnDDL,
+    $attrDDLs.attributePositorColumnDDL,
+    $attrDDLs.attributeReliabilityColumnDDL,
+    $attrDDLs.attributeAssertionColumnDDL,
+    $attributeAnchorReferenceColumnDDL,
+    $(attribute.hasChecksum())? $attrDDLs.attributeChecksumColumnDDL,
+    $attrDDLs.attributeValueColumnDDL,
+    $attrDDLs.attributeChangingColumnDDL
+)
+AS \$$function\$$
+BEGIN
+    RETURN QUERY
+        SELECT
+            $(schema.METADATA)? a.$attrDDLs.attributeMetadataColumnNameQuoted,
+            p.$attrDDLs.attributeIdentityColumnNameQuoted,
+            a.$attrDDLs.attributePositingColumnNameQuoted,
+            a.$attrDDLs.attributePositorColumnNameQuoted,
+            a.$attrDDLs.attributeReliabilityColumnNameQuoted,
+            a.$attrDDLs.attributeAssertionColumnNameQuoted,
+            p.$attrDDLs.attributeAnchorReferenceNameQuoted,
+            $(attribute.hasChecksum())? p.$attrDDLs.attributeChecksumColumnNameQuoted,
+            p.$attrDDLs.attributeValueColumnNameQuoted,
+            p.$attrDDLs.attributeChangingColumnNameQuoted
+        FROM
+            $capsuleNameQuoted\.$attrDDLs.attributePositForwarderNameQuoted(@changingTimepoint) p
+        JOIN
+            $capsuleNameQuoted\.$attrDDLs.attributeAnnexRewinderNameQuoted(@positingTimepoint) a
+        ON
+            a.$attrDDLs.attributeIdentityColumnNameQuoted = p.$attrDDLs.attributeIdentityColumnNameQuoted
+        AND
+            a.$attrDDLs.attributePositorColumnNameQuoted = @positor
+        AND
+            a.$attrDDLs.attributePositingColumnNameQuoted = (
+                WITH sub AS ($capsuleNameQuoted\.$attrDDLs.attributeAnnexRewinderNameQuoted(@positingTimepoint))
+                SELECT TOP 1
+                    sub.$attrDDLs.attributePositingColumnNameQuoted
+                FROM sub
+                WHERE
+                    sub.$attrDDLs.attributeIdentityColumnNameQuoted = p.$attrDDLs.attributeIdentityColumnNameQuoted
+                AND
+                    sub.$attrDDLs.attributePositorColumnNameQuoted = @positor
+                ORDER BY
+                    sub.$attrDDLs.attributePositingColumnNameQuoted DESC
+            );
+END;
+\$$function\$$
+LANGUAGE plpgsql;
+
+-- Attribute previous value -------------------------------------------------------------------------------------------
+-- $attrDDLs.attributePreviousName function for getting previous value
+-----------------------------------------------------------------------------------------------------------------------
+CREATE FUNCTION $capsuleNameQuoted\.$attrDDLs.attributePreviousNameQuoted (
+    @id $anchor.identity,
+    @positor $schemaMetadata.positorRange = 0,
+    @changingTimepoint $attribute.timeRange = '$schema.EOT',
+    @positingTimepoint $schemaMetadata.positingRange = '$schema.EOT'
+)
+RETURNS $(attribute.isKnotted())? $attribute.knot.identity : $attribute.dataRange
+AS \$$function\$$
+BEGIN
+    RETURN QUERY
+        SELECT TOP 1
+            $(attribute.hasChecksum())? pre.$attrDDLs.attributeChecksumColumnNameQuoted : pre.$attrDDLs.attributeValueColumnNameQuoted
+        FROM
+            $capsuleNameQuoted\.$attrDDLs.attributeRewinderNameQuoted (
                 @positor,
                 @changingTimepoint,
                 @positingTimepoint
             ) pre
         WHERE
-            pre.$attribute.anchorReferenceName = @id
+            pre.$attrDDLs.attributeAnchorReferenceNameQuoted = @id
         AND
-            pre.$attribute.changingColumnName < @changingTimepoint
+            pre.$attrDDLs.attributeChangingColumnNameQuoted < @changingTimepoint
         AND
-            pre.$attribute.reliableColumnName = 1
+            pre.$attrDDLs.attributeAssertionColumnNameQuoted = isnull(@assertion, pre.$attrDDLs.attributeAssertionColumnNameQuoted)
         ORDER BY
-            pre.$attribute.changingColumnName DESC,
-            pre.$attribute.positingColumnName DESC
-    );
-    END
-    ');
-END
-GO
+            pre.$attrDDLs.attributeChangingColumnNameQuoted DESC,
+            pre.$attrDDLs.attributePositingColumnNameQuoted DESC;
+END;
+\$$function\$$
+LANGUAGE plpgsql;
+
 -- Attribute following value ------------------------------------------------------------------------------------------
--- fol$attribute.name function for getting following value
+-- $attrDDLs.attributeFollowingName function for getting following value
 -----------------------------------------------------------------------------------------------------------------------
-IF Object_ID('$attribute.capsule$.fol$attribute.name','FN') IS NULL
+CREATE FUNCTION $capsuleNameQuoted\.$attrDDLs.attributeFollowingNameQuoted (
+    @id $anchor.identity,
+    @positor $schemaMetadata.positorRange = 0,
+    @changingTimepoint $attribute.timeRange = '$schema.EOT',
+    @positingTimepoint $schemaMetadata.positingRange = '$schema.EOT'
+)
+RETURNS $(attribute.isKnotted())? $attribute.knot.identity : $attribute.dataRange
+AS
+\$$function\$$
 BEGIN
-    EXEC('
-    CREATE FUNCTION [$attribute.capsule].[fol$attribute.name] (
-        @id $anchor.identity,
-        @positor $schema.metadata.positorRange = 0,
-        @changingTimepoint $attribute.timeRange = '$schema.EOT',
-        @positingTimepoint $schema.metadata.positingRange = '$schema.EOT'
-    )
-    RETURNS $(attribute.isKnotted())? $attribute.knot.identity : $attribute.dataRange
-    AS
-    BEGIN RETURN (
+    RETURN QUERY
         SELECT TOP 1
-            $(attribute.hasChecksum())? fol.$attribute.checksumColumnName : fol.$attribute.valueColumnName
+            $(attribute.hasChecksum())? fol.$attrDDLs.attributeChecksumColumnNameQuoted : fol.$attrDDLs.attributeValueColumnNameQuoted
         FROM
-            [$attribute.capsule].[f$attribute.name](
+            $capsuleNameQuoted\.$attrDDLs.attributeForwarderNameQuoted (
                 @positor,
                 @changingTimepoint,
                 @positingTimepoint
             ) fol
         WHERE
-            fol.$attribute.anchorReferenceName = @id
+            fol.$attrDDLs.attributeAnchorReferenceNameQuoted = @id
         AND
-            fol.$attribute.changingColumnName > @changingTimepoint
+            fol.$attrDDLs.attributeChangingColumnNameQuoted > @changingTimepoint
         AND
-            fol.$attribute.reliableColumnName = 1
+            fol.$attrDDLs.attributeAssertionColumnNameQuoted = isnull(@assertion, fol.$attrDDLs.attributeAssertionColumnNameQuoted)
         ORDER BY
-            fol.$attribute.changingColumnName ASC,
-            fol.$attribute.positingColumnName DESC
-    );
-    END
-    ');
+            fol.$attrDDLs.attributeChangingColumnNameQuoted ASC,
+            fol.$attrDDLs.attributePositingColumnNameQuoted DESC;
 END
-GO
+\$$function\$$
+LANGUAGE plpgsql;
 ~*/
-        }
-        else {
+        } else {
 /*~
 -- Attribute annex rewinder -------------------------------------------------------------------------------------------
--- r$attribute.annexName rewinding over positing time function
+-- $attrDDLs.attributeAnnexRewinderName rewinding over positing time function
 -----------------------------------------------------------------------------------------------------------------------
-IF Object_ID('$attribute.capsule$.r$attribute.annexName','IF') IS NULL
+CREATE FUNCTION $capsuleNameQuoted\.$attrDDLs.attributeAnnexRewinderNameQuoted (
+    @positingTimepoint $schemaMetadata.positingRange = '$schema.EOT'
+)
+RETURNS TABLE (
+        $(schema.METADATA)? $attrDDLs.attributeMetadataColumnDDL,
+        $attrDDLs.attributeIdentityColumnDDL,
+        $attrDDLs.attributePositingColumnDDL,
+        $attrDDLs.attributePositorColumnDDL,
+        $attrDDLs.attributeReliabilityColumnDDL,
+        $attrDDLs.attributeAssertionColumnDDL
+)
+AS
+\$$function\$$
 BEGIN
-    EXEC('
-    CREATE FUNCTION [$attribute.capsule].[r$attribute.annexName] (
-        @positingTimepoint $schema.metadata.positingRange = '$schema.EOT'
-    )
-    RETURNS TABLE WITH SCHEMABINDING AS RETURN
-    SELECT
-        $(schema.METADATA)? $attribute.metadataColumnName,
-        $attribute.identityColumnName,
-        $attribute.positingColumnName,
-        $attribute.positorColumnName,
-        $attribute.reliabilityColumnName,
-        $attribute.reliableColumnName
-    FROM
-        [$attribute.capsule].[$attribute.annexName]
-    WHERE
-        $attribute.positingColumnName <= @positingTimepoint;
-    ');
-END
-GO
+    RETURN QUERY
+        SELECT
+            $(schema.METADATA)? $attrDDLs.attributeMetadataColumnNameQuoted,
+            $attrDDLs.attributeIdentityColumnNameQuoted,
+            $attrDDLs.attributePositingColumnNameQuoted,
+            $attrDDLs.attributePositorColumnNameQuoted,
+            $attrDDLs.attributeReliabilityColumnNameQuoted,
+            $attrDDLs.attributeAssertionColumnNameQuoted
+        FROM
+            $capsuleNameQuoted\.$attrDDLs.attributeAnnexNameQuoted
+        WHERE
+            $attrDDLs.attributePositingColumnNameQuoted <= @positingTimepoint;
+END;
+\$$function\$$
+LANGUAGE plpgsql;
+
 -- Attribute assembled rewinder ---------------------------------------------------------------------------------------
--- r$attribute.name rewinding over changing and positing time function
+-- $attrDDLs.attributeAssembledRewinderName rewinding over changing and positing time function
 -----------------------------------------------------------------------------------------------------------------------
-IF Object_ID('$attribute.capsule$.r$attribute.name','IF') IS NULL
+CREATE FUNCTION $capsuleNameQuoted\.$attrDDLs.attributeAssembledRewinderNameQuoted (
+    @positor $schemaMetadata.positorRange = 0,
+    @positingTimepoint $schemaMetadata.positingRange = $schema.EOT::$schemaMetadata.positingRange
+)
+RETURNS TABLE (
+    $(schema.METADATA)? $attrDDLs.attributeMetadataColumnDDL,
+    $attrDDLs.attributeIdentityColumnDDL,
+    $attrDDLs.attributePositingColumnDDL,
+    $attrDDLs.attributePositorColumnDDL,
+    $attrDDLs.attributeReliabilityColumnDDL,
+    $attrDDLs.attributeAssertionColumnDDL,
+    $attributeAnchorReferenceColumnDDL,
+    $(attribute.hasChecksum())? $attrDDLs.attributeChecksumColumnDDL,
+    $attrDDLs.attributeValueColumnDDL
+)
+AS
+\$$function\$$
 BEGIN
-    EXEC('
-    CREATE FUNCTION [$attribute.capsule].[r$attribute.name] (
-        @positor $schema.metadata.positorRange = 0,
-        @positingTimepoint $schema.metadata.positingRange = '$schema.EOT'
-    )
-    RETURNS TABLE WITH SCHEMABINDING AS RETURN
-    SELECT
-        $(schema.METADATA)? a.$attribute.metadataColumnName,
-        p.$attribute.identityColumnName,
-        a.$attribute.positingColumnName,
-        a.$attribute.positorColumnName,
-        a.$attribute.reliabilityColumnName,
-        a.$attribute.reliableColumnName,
-        p.$attribute.anchorReferenceName,
-        $(attribute.hasChecksum())? p.$attribute.checksumColumnName,
-        p.$attribute.valueColumnName
-    FROM
-        [$attribute.capsule].[$attribute.positName] p
-    JOIN
-        [$attribute.capsule].[r$attribute.annexName](@positingTimepoint) a
-    ON
-        a.$attribute.identityColumnName = p.$attribute.identityColumnName
-    AND
-        a.$attribute.positorColumnName = @positor
-    AND
-        a.$attribute.positingColumnName = (
-            SELECT TOP 1
-                sub.$attribute.positingColumnName
-            FROM
-                [$attribute.capsule].[r$attribute.annexName](@positingTimepoint) sub
-            WHERE
-                sub.$attribute.identityColumnName = p.$attribute.identityColumnName
-            AND
-                sub.$attribute.positorColumnName = @positor
-            ORDER BY
-                sub.$attribute.positingColumnName DESC
-        )
-    ');
-END
-GO
+    RETURN QUERY
+        SELECT
+            $(schema.METADATA)? a.$attrDDLs.attributeMetadataColumnNameQuoted,
+            p.$attrDDLs.attributeIdentityColumnNameQuoted,
+            a.$attrDDLs.attributePositingColumnNameQuoted,
+            a.$attrDDLs.attributePositorColumnNameQuoted,
+            a.$attrDDLs.attributeReliabilityColumnNameQuoted,
+            a.$attrDDLs.attributeAssertionColumnNameQuoted,
+            p.$attrDDLs.attributeAnchorReferenceNameQuoted,
+            $(attribute.hasChecksum())? p.$attrDDLs.attributeChecksumColumnNameQuoted,
+            p.$attrDDLs.attributeValueColumnNameQuoted
+        FROM
+            $capsuleNameQuoted\.$attrDDLs.attributePositNameQuoted p
+        JOIN
+            $capsuleNameQuoted\.$attrDDLs.attributeAnnexRewinderNameQuoted(@positingTimepoint) a
+        ON
+            a.$attrDDLs.attributeIdentityColumnNameQuoted = p.$attrDDLs.attributeIdentityColumnNameQuoted
+        AND
+            a.$attrDDLs.attributePositorColumnNameQuoted = @positor
+        AND
+            a.$attrDDLs.attributePositingColumnNameQuoted = (
+                SELECT TOP 1
+                    sub.$attrDDLs.attributePositingColumnNameQuoted
+                FROM
+                    $capsuleNameQuoted\.$attrDDLs.attributeAnnexRewinderNameQuoted(@positingTimepoint) sub
+                WHERE
+                    sub.$attrDDLs.attributeIdentityColumnNameQuoted = p.$attrDDLs.attributeIdentityColumnNameQuoted
+                AND
+                    sub.$attrDDLs.attributePositorColumnNameQuoted = @positor
+                ORDER BY
+                    sub.$attrDDLs.attributePositingColumnNameQuoted DESC
+            );
+END;
+\$$function\$$
+LANGUAGE plpgsql;
 ~*/
         }
-
     }
 }

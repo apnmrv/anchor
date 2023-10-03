@@ -11,62 +11,62 @@
  ~*/
 var knot;
 while (knot = schema.nextKnot()) {
-    if(knot.isGenerator())
-        knot.identityGenerator = schema.metadata.identityProperty;
-    if(schema.EQUIVALENCE && knot.isEquivalent()) {
-        var scheme = schema.PARTITIONING ? ' ON EquivalenceScheme(' + knot.equivalentColumnName + ')' : '';
-/*~
--- Knot identity table ------------------------------------------------------------------------------------------------
--- $knot.identityName table
------------------------------------------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS $knot.capsule\.$knot.identityName (
-    $knot.identityColumnName $knot.identity $knot.identityGenerator not null,
-    $(schema.METADATA)? $knot.metadataColumnName $schema.metadata.metadataType not null, : $knot.dummyColumnName boolean null,
-    constraint pk$knot.identityName primary key (
-        $knot.identityColumnName
-    )
-);
--- Knot value table ---------------------------------------------------------------------------------------------------
--- $knot.equivalentName table
------------------------------------------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS $knot.capsule\.$knot.equivalentName (
-    $knot.identityColumnName $knot.identity not null,
-    $knot.equivalentColumnName $schema.metadata.equivalentRange not null,
-    $knot.valueColumnName $knot.dataRange not null,
-    $(knot.hasChecksum())? $knot.checksumColumnName bytea generated always as (cast(MD5(cast($knot.valueColumnName as text)) as bytea)) stored,
-    $(schema.METADATA)? $knot.metadataColumnName $schema.metadata.metadataType not null, : $knot.dummyColumnName boolean null,
-    constraint fk$knot.equivalentName foreign key (
-        $knot.identityColumnName
-    ) references $knot.capsule\.$knot.identityName($knot.identityColumnName),
-    constraint pk$knot.equivalentName primary key (
-        $knot.equivalentColumnName ,
-        $knot.identityColumnName
-    ),
-    constraint uq$knot.equivalentName unique (
-        $knot.equivalentColumnName,
-        $(knot.hasChecksum())? $knot.checksumColumnName : $knot.valueColumnName
-    )
-);
-~*/
+    var knotNameQuoted = quoted(knot.name);
+    var knotIdentityColumnNameQuoted = quoted(knot.identityColumnName);
+    var knotMetadataColumnNameQuoted = quoted(knot.metadataColumnName);
+    var knotValueColumnNameQuoted = quoted(knot.valueColumnName);
+    var knotChecksumColumnNameQuoted = quoted(knot.checksumColumnName);
 
-    } // end of equivalent knot
-    else { // start of regular knot
+    var knotIdentityColumnDDL = toDdlExpr(
+        knotIdentityColumnNameQuoted,
+        knot.identity,
+        knot.identityGenerator,
+        notNullDDL
+    );
+    var knotMetadataColumnDDL = toDdlExpr(
+        knotMetadataColumnNameQuoted,
+        schemaMetadata.metadataType,
+        notNullDDL
+    );
+    var knotValueColumnDDL = toDdlExpr(
+        knotValueColumnNameQuoted,
+        knot.dataRange,
+        notNullDDL
+    );
+
+    var knotChecksumColumnDDL = toDdlExpr(
+        knotChecksumColumnNameQuoted,
+        "bytea generated always as (cast(MD5(cast(" + knot.valueColumnName + "as text)) as bytea))",
+        "stored"
+    );
+
+    var pkKnotQuoted = quoted("pk" + knot.name);
+    var uqKnotQuoted = quoted("uq" + knot.name);
+    var idxKnotQuoted = quoted("idx" + knot.name);
+
+    if (knot.isGenerator())
+        knot.identityGenerator = schemaMetadata.identityProperty;
 /*~
 -- Knot table ---------------------------------------------------------------------------------------------------------
 -- $knot.name table
 -----------------------------------------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS $knot.capsule\.$knot.name (
-    $knot.identityColumnName $knot.identity $knot.identityGenerator not null,
-    $knot.valueColumnName $knot.dataRange not null,
-    $(knot.hasChecksum())? $knot.checksumColumnName bytea generated always as (cast(MD5(cast($knot.valueColumnName as text)) as bytea)) stored,
-    $(schema.METADATA)? $knot.metadataColumnName $schema.metadata.metadataType not null,
-    constraint pk$knot.name primary key (
-        $knot.identityColumnName
+CREATE TABLE IF NOT EXISTS $capsuleNameQuoted\.$knotNameQuoted (
+    $knotIdentityColumnDDL,
+    $knotValueColumnDDL,
+    $(knot.hasChecksum())? $knotChecksumColumnDDL,
+    $(schema.METADATA)? $knotMetadataColumnDDL,
+
+    constraint $pkKnotQuoted primary key (
+        $knotIdentityColumnNameQuoted
     ),
-    constraint uq$knot.name unique (
-        $(knot.hasChecksum())? $knot.checksumColumnName : $knot.valueColumnName
+
+    constraint $uqKnotQuoted unique (
+        $(knot.hasChecksum())? $knotChecksumColumnNameQuoted : $knotValueColumnNameQuoted
     )
 );
+
+CREATE INDEX $idxKnotQuoted ON $capsuleNameQuoted\.$knotNameQuoted (
+    $knotIdentityColumnNameQuoted asc
+);
 ~*/
-    } // end of regular knot
 }

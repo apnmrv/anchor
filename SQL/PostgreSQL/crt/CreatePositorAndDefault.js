@@ -6,17 +6,18 @@
 --
 -- Positor table ------------------------------------------------------------------------------------------------------
 ~*/
-var metadata = schema.metadata;
-var capsule = metadata.encapsulation;
-var positorSuffix = metadata.positorSuffix;
+
+var positorSuffix = quoted("_" + schemaMetadata.positorSuffix);
+var pkPositorSuffix = quoted("pk_" + schemaMetadata.positorSuffix);
+
 /*~
-CREATE TABLE IF NOT EXISTS $capsule\._$positorSuffix (
-    $positorSuffix $schema.metadata.positorRange not null,
-    constraint pk_$positorSuffix primary key (
-        $positorSuffix asc
+CREATE TABLE IF NOT EXISTS $capsuleNameQuoted\.$positorSuffix (
+    $positorSuffix $schemaMetadata.positorRange not null,
+    constraint $pkPositorSuffix primary key (
+        $positorSuffix
     )
 );
-INSERT INTO $capsule._$positorSuffix (
+INSERT INTO $capsuleNameQuoted\.$positorSuffix (
     $positorSuffix
 )
 VALUES (
