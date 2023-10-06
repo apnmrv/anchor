@@ -1,14 +1,14 @@
 # This is the processing directive for concurrent-reliance-temporal Anchor Modeling in SQL Server
 SQL/Helpers.js
 SQL/NamingConvention.js
-SQL/PostgreSQL/Helpers.js
-SQL/PostgreSQL/AnchorHelpers.js
-SQL/PostgreSQL/AttributeHelpers.js
 SQL/PostgreSQL/NamingConvention.js
-SQL/PostgreSQL/crt/SetupPositorPartitioning.js
+SQL/SQLServer/crt/SetupPositorPartitioning.js
 SQL/PostgreSQL/crt/CreatePositorAndDefault.js
 SQL/PostgreSQL/crt/CreateKnots.js
 SQL/PostgreSQL/crt/CreateAnchorsAndAttributes.js
 SQL/PostgreSQL/crt/CreateAttributeAssembledViews.js
 SQL/PostgreSQL/crt/CreateAttributeRewinders.js
+SQL/PostgreSQL/biz/DropAnchorBusinessPerspectives.js
+SQL/PostgreSQL/crt/CreateAnchorPerspectives.js
+SQL/PostgreSQL/biz/CreateAnchorBusinessPerspectives.js
 SQL/PostgreSQL/crt/CreateTies.js

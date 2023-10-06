@@ -12,6 +12,8 @@ var tie;
 while (tie = schema.nextTie()) {
     if(schema.METADATA)
         tie.metadataDefinition = tie.metadataColumnName + ' ' + schema.metadata.metadataType + ' not null,';
+    if(tie.isGenerator())
+        tie.identityGenerator = schema.metadata.identityProperty;
     if(tie.isHistorized() && tie.isKnotted()) {
 /*~
 -- Knotted historized tie table ---------------------------------------------------------------------------------------
@@ -33,30 +35,26 @@ while (tie = schema.nextTie()) {
 ~*/
     }
 /*~
--- $tie.name table (having $tie.roles.length roles)
+-- $tie.positName table (having $tie.roles.length roles)
 -----------------------------------------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS $tie.capsule\.$tie.name (
+CREATE TABLE "$tie.capsule"\."$tie.positName" (
+    "$tie.identityColumnName" $tie.identity $tie.identityGenerator not null,
 ~*/
     var role;
     while (role = tie.nextRole()) {
-    /*~
-        $role.columnName $(role.anchor)? $role.anchor.identity not null, : $role.knot.identity not null,
-    ~*/
+/*~
+    "$role.columnName" $(role.anchor)? $role.anchor.identity not null, : $role.knot.identity not null,
+~*/
     }
 /*~
-    $(tie.timeRange)? $tie.changingColumnName $tie.timeRange not null,
-    $(schema.METADATA)? $tie.metadataColumnName $schema.metadata.metadataType not null,
+    $(tie.timeRange)? "$tie.changingColumnName" $tie.timeRange not null,
 ~*/
     while (role = tie.nextRole()) {
-        var knotReference = '';
-        if(role.knot) {
-            knotReference += role.knot.capsule + '.' + (role.knot.isEquivalent() ? role.knot.identityName : role.knot.name) ;
-        }
-/*~
-    constraint ${(tie.name + '_fk' + role.name)}$ foreign key (
-        $role.columnName
-    ) references $(role.anchor)? $role.anchor.capsule\.$role.anchor.name($role.anchor.identityColumnName), : $knotReference($role.knot.identityColumnName),
-~*/
+        /*~
+            constraint "${(tie.positName + '_fk' + role.name)}$" foreign key (
+                "$role.columnName"
+            ) references $(role.anchor)? "$role.anchor.capsule"\."$role.anchor.name"("$role.anchor.identityColumnName"), : "$role.knot.capsule"."$role.knot.name"("$role.knot.identityColumnName"),
+         ~*/
     }
     // one-to-one and we need additional constraints
     if(!tie.hasMoreIdentifiers()) {
@@ -64,87 +62,112 @@ CREATE TABLE IF NOT EXISTS $tie.capsule\.$tie.name (
             if(role.isAnchorRole()) {
                 if(tie.isHistorized()) {
 /*~
-    constraint ${tie.name + '_uq' + role.name}$ unique (
-        $role.columnName,
-        $tie.changingColumnName
+    constraint "${(tie.positName + '_uq' + role.name)}$" unique (
+        "$role.columnName",
+        "$tie.changingColumnName"
     ),
 ~*/
                 }
                 else {
 /*~
-    constraint ${tie.name + '_uq' + role.name}$ unique (
-        $role.columnName
-    ),
-~*/
+    constraint "${(tie.positName + '_uq' + role.name)}$" unique (
+        "$role.columnName"
+    ),~*/
                 }
             }
         }
     }
 /*~
-    constraint pk$tie.positName primary key (
-    $tie.identityColumnName
-),
-constraint uq$tie.name unique (
+    constraint "pk$tie.positName" primary key (
+        "$tie.identityColumnName"
+    ),
+    constraint "uq$tie.name" unique (
 ~*/
     while (role = tie.nextIdentifier()) {
 /*~
-        $role.columnName ~*/
+        "$role.columnName"~*/
         if(tie.hasMoreIdentifiers() || tie.hasMoreValues() || tie.isHistorized()) {
             /*~,~*/
         }
-        }
+    }
     if(tie.isHistorized()) {
 /*~
-        $tie.changingColumnName desc~*/
+        "$tie.changingColumnName"~*/
         if(tie.hasMoreValues()) {
             /*~,~*/
         }
     }
-    while (role = tie.nextRole()) {
+    while (role = tie.nextValue()) {
 /*~
-        $role.columnName asc ~*/
+        "$role.columnName"~*/
         if(tie.hasMoreValues()) {
-            /*~,~*/
+/*~,~*/
         }
     }
 /*~
     )
 );
+CREATE INDEX "idxPk$tie.positName" ON "$tie.capsule"\."$tie.positName" (
+     "$tie.identityColumnName" asc
+);
+CREATE INDEX "idxUq$tie.positName" ON "$tie.capsule"\."$tie.positName" (
 ~*/
-    var scheme = schema.PARTITIONING ? ' ON PositorScheme(' + tie.positorColumnName + ')' : '';
+    while (role = tie.nextIdentifier()) {
+        /*~
+                "$role.columnName" asc~*/
+        if(tie.hasMoreIdentifiers() || tie.hasMoreValues() || tie.isHistorized()) {
+            /*~,~*/
+        }
+    }
+    if(tie.isHistorized()) {
+        /*~
+                "$tie.changingColumnName" desc~*/
+        if(tie.hasMoreValues()) {
+            /*~,~*/
+        }
+    }
+    while (role = tie.nextValue()) {
+        /*~
+                "$role.columnName" asc~*/
+        if(tie.hasMoreValues()) {
+            /*~,~*/
+        }
+    }
 /*~
+);
+
+ALTER TABLE IF EXISTS ONLY "$tie.capsule"\."$tie.positName" CLUSTER ON "idxUq$tie.positName";
+
 -- Tie annex table ----------------------------------------------------------------------------------------------------
 -- $tie.annexName table
 -----------------------------------------------------------------------------------------------------------------------
-CREATE TABLE $tie.capsule\.$tie.annexName (
-    $tie.identityColumnName $tie.identity not null,
-    $tie.positingColumnName $schema.metadata.positingRange not null,
-    $tie.positorColumnName $schema.metadata.positorRange not null,
-    $tie.reliabilityColumnName $schema.metadata.reliabilityRange not null,
-    $tie.assertionColumnName as cast(
+CREATE TABLE "$tie.capsule"\."$tie.annexName" (
+    "$tie.identityColumnName" $tie.identity not null,
+    "$tie.positingColumnName" $schema.metadata.positingRange not null,
+    "$tie.positorColumnName" $schema.metadata.positorRange not null,
+    "$tie.reliabilityColumnName" $schema.metadata.reliabilityRange not null,
+    "$tie.assertionColumnName" char(1) generated always as (
         case
-            when $tie.reliabilityColumnName > $schema.metadata.deleteReliability then '+'
-            when $tie.reliabilityColumnName = $schema.metadata.deleteReliability then '?'
-            when $tie.reliabilityColumnName < $schema.metadata.deleteReliability then '-'
-        end
-    as char(1)) persisted,
-    $(schema.METADATA)? $tie.metadataColumnName $schema.metadata.metadataType not null,
-
-    constraint fk$tie.annexName foreign key (
-        $tie.identityColumnName
-    ) references $tie.capsule\.$tie.positName ($tie.identityColumnName),
-
-    constraint pk$tie.annexName primary key clustered (
-        $tie.identityColumnName,
-        $tie.positorColumnName,
-        $tie.positingColumnName
+            when "$tie.reliabilityColumnName" > $schema.metadata.deleteReliability then '+'
+            when "$tie.reliabilityColumnName" = $schema.metadata.deleteReliability then '?'
+            when "$tie.reliabilityColumnName" < $schema.metadata.deleteReliability then '-'
+        end) stored,
+    $(schema.METADATA)? "$tie.metadataColumnName" $schema.metadata.metadataType not null,
+    constraint "fk${tie.annexName}$" foreign key (
+        "$tie.identityColumnName"
+    ) references "$tie.capsule"\."$tie.positName"("$tie.identityColumnName"),
+    constraint "pk$tie.annexName" primary key (
+        "$tie.identityColumnName",
+        "$tie.positorColumnName",
+        "$tie.positingColumnName"
     )
-)
+);
 
-CREATE INDEX idx$tie.annexName ON $tie.capsule\.$tie.annexName (
-        $tie.identityColumnName asc,
-        $tie.positorColumnName asc,
-        $tie.positingColumnName desc
-)
+CREATE INDEX "idx$tie.annexName" ON "$tie.capsule"\."$tie.annexName" (
+        "$tie.identityColumnName" asc,
+        "$tie.positorColumnName" asc,
+        "$tie.positingColumnName" desc
+);
+ALTER TABLE IF EXISTS ONLY  "$tie.capsule"\."$tie.annexName" CLUSTER ON "idx$tie.annexName";
 ~*/
 }

@@ -5,22 +5,21 @@
 -- must be available the table is set up with a default positor with identity 0.
 --
 -- Positor table ------------------------------------------------------------------------------------------------------
-~*/
 
-var positorSuffix = quoted("_" + schemaMetadata.positorSuffix);
-var pkPositorSuffix = quoted("pk_" + schemaMetadata.positorSuffix);
-
-/*~
-CREATE TABLE IF NOT EXISTS $capsuleNameQuoted\.$positorSuffix (
-    $positorSuffix $schemaMetadata.positorRange not null,
-    constraint $pkPositorSuffix primary key (
-        $positorSuffix
+CREATE TABLE IF NOT EXISTS "$schema.metadata.encapsulation"\."_$schema.metadata.positorSuffix" (
+    "$schema.metadata.positorSuffix" $schema.metadata.positorRange not null,
+    constraint "pk_$schema.metadata.positorSuffix" primary key (
+        "$schema.metadata.positorSuffix"
     )
 );
-INSERT INTO $capsuleNameQuoted\.$positorSuffix (
-    $positorSuffix
-)
-VALUES (
+
+CREATE INDEX "idx_$schema.metadata.positorSuffix" ON "$schema.metadata.encapsulation"\."_$schema.metadata.positorSuffix" (
+       "$schema.metadata.positorSuffix" asc
+);
+
+INSERT INTO "$schema.metadata.encapsulation"\."_$schema.metadata.positorSuffix" (
+    "$schema.metadata.positorSuffix"
+) VALUES (
     0 -- the default positor
 );
 ~*/

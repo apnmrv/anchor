@@ -10,31 +10,29 @@ var anchor;
 while (anchor = schema.nextAnchor()) {
     var knot, attribute;
     while (attribute = anchor.nextAttribute()) {
-        var attrDDL = attributeDDL(attribute, schemaMetadata);
 /*~
 -- Attribute assembled view -------------------------------------------------------------------------------------------
 -- $attribute.name assembled view of the posit and annex tables,
 -- pk$attribute.name optional temporal consistency constraint
 -----------------------------------------------------------------------------------------------------------------------
-CREATE VIEW $capsuleNameQuoted\.$attrDDL.attributeNameQuoted AS
+CREATE VIEW "$attribute.capsule"\."$attribute.name" AS
     SELECT
-            $(schema.METADATA)? a.$attrDDL.attributeMetadataColumnNameQuoted,
-            p.$attrDDL.attributeIdentityColumnNameQuoted,
-            p.$attrDDL.attributeAnchorReferenceColumnNameQuoted,
-            $(attribute.hasChecksum())? p.$attrDDL.attributeChecksumColumnNameQuoted,
-            p.$attrDDL.attributeValueColumnNameQuoted,
-            $(attribute.timeRange)? p.$attrDDL.attributeChangingColumnNameQuoted,
-            a.$attrDDL.attributePositingColumnNameQuoted,
-            a.$attrDDL.attributePositorColumnNameQuoted,
-            a.$attrDDL.attributeReliabilityColumnNameQuoted,
-            a.$attrDDL.attributeAssertionColumnNameQuoted
-        FROM
-            $capsuleNameQuoted\.$attrDDL.attributePositNameQuoted p
-        JOIN
-            $capsuleNameQuoted\.$attrDDL.attributeAnnexNameQuoted a
-        ON
-            a.$attrDDL.attributeIdentityColumnNameQuoted = p.$attrDDL.attributeIdentityColumnNameQuoted;
-        ');
+        $(schema.METADATA)? a."$attribute.metadataColumnName",
+        p."$attribute.identityColumnName",
+        p."$attribute.anchorReferenceName",
+        $(attribute.hasChecksum())? p."$attribute.checksumColumnName",
+        p."$attribute.valueColumnName",
+        $(attribute.timeRange)? p."$attribute.changingColumnName",
+        a."$attribute.positingColumnName",
+        a."$attribute.positorColumnName",
+        a."$attribute.reliabilityColumnName",
+        a."$attribute.assertionColumnName"
+    FROM
+        "$attribute.capsule"\."$attribute.positName" p
+    JOIN
+        "$attribute.capsule"\."$attribute.annexName" a
+    ON
+        a."$attribute.identityColumnName" = p."$attribute.identityColumnName";
 ~*/
     }
 }

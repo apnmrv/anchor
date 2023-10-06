@@ -10,26 +10,17 @@ if(schema.BUSINESS_VIEWS) {
 ~*/
         if(schema.EQUIVALENCE) {
 /*~
-IF Object_ID('$tie.capsule$.EQ_Difference_$tie.businessName', 'IF') IS NOT NULL
-DROP FUNCTION [$tie.capsule].[EQ_Difference_$tie.businessName];
-IF Object_ID('$tie.capsule$.EQ_Current_$tie.businessName', 'IF') IS NOT NULL
-DROP FUNCTION [$tie.capsule].[EQ_Current_$tie.businessName];
-IF Object_ID('$tie.capsule$.EQ_Point_$tie.businessName', 'IF') IS NOT NULL
-DROP FUNCTION [$tie.capsule].[EQ_Point_$tie.businessName];
-IF Object_ID('$tie.capsule$.EQ_Latest_$tie.businessName', 'IF') IS NOT NULL
-DROP FUNCTION [$tie.capsule].[EQ_Latest_$tie.businessName];
+DROP FUNCTION IF EXISTS "$tie.capsule"\."EQ_Difference_$tie.businessName";
+DROP FUNCTION IF EXISTS "$tie.capsule"\."EQ_Current_$tie.businessName";
+DROP FUNCTION IF EXISTS "$tie.capsule"\."EQ_Point_$tie.businessName";
+DROP FUNCTION IF EXISTS "$tie.capsule"\."EQ_Latest_$tie.businessName";
 ~*/
         }
 /*~
-IF Object_ID('$tie.capsule$.Difference_$tie.businessName', 'IF') IS NOT NULL
-DROP FUNCTION [$tie.capsule].[Difference_$tie.businessName];
-IF Object_ID('$tie.capsule$.Current_$tie.businessName', 'V') IS NOT NULL
-DROP VIEW [$tie.capsule].[Current_$tie.businessName];
-IF Object_ID('$tie.capsule$.Point_$tie.businessName', 'IF') IS NOT NULL
-DROP FUNCTION [$tie.capsule].[Point_$tie.businessName];
-IF Object_ID('$tie.capsule$.Latest_$tie.businessName', 'V') IS NOT NULL
-DROP VIEW [$tie.capsule].[Latest_$tie.businessName];
-GO
+DROP FUNCTION IF EXISTS "$tie.capsule"\."Difference_$tie.businessName";
+DROP VIEW IF EXISTS "$tie.capsule"\."Current_$tie.businessName";
+DROP FUNCTION IF EXISTS "$tie.capsule"\."Point_$tie.businessName";
+DROP VIEW IF EXISTS "$tie.capsule"\."Latest_$tie.businessName";
 ~*/
     }
 }

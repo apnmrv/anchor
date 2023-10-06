@@ -85,7 +85,7 @@ AS
 SELECT
     *
 FROM
-    [$tie.capsule].[Point_$tie.businessName]($schema.metadata.now);
+    [$tie.capsule].[Point_$tie.businessName]($schema.metadata.now::timestamp);
 GO
 ~*/
         if(tie.isHistorized()) {
