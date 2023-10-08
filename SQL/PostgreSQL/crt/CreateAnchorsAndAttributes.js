@@ -31,8 +31,8 @@ CREATE INDEX "idx$anchor.name" ON "$anchor.capsule"\."$anchor.name" (
 ~*/
     var knot, attribute;
     while (attribute = anchor.nextAttribute()) {
-        if(anchor.isGenerator())
-            anchor.identityGenerator = schema.metadata.identityProperty;
+        if(attribute.isGenerator())
+            attribute.identityGenerator = schema.metadata.identityProperty;
         if (attribute.isHistorized() && !attribute.isKnotted()) {
 /*~
 -- Historized attribute posit table -----------------------------------------------------------------------------------

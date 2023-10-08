@@ -18,7 +18,7 @@ if(restatements) {
 -- @posit       the id of the posit that should be checked
 -- @posited     the time when this posit was made
 -- @positor     the one who made the posit
--- @reliable    whether this posit is considered reliable (1) or unreliable (0)
+-- @assertion   whether this posit is positively or negatively asserted, or unreliable
 --
 ~*/
     while (anchor = schema.nextAnchor()) {
@@ -28,7 +28,7 @@ if(restatements) {
                 if(!attribute.isKnotted()) {
                     if(attribute.hasChecksum()) {
                         valueColumn = attribute.checksumColumnName;
-                        valueType = 'varbinary(16)';
+                        valueType = 'bytea';
                     }
                     else {
                         valueColumn = attribute.valueColumnName;
@@ -45,103 +45,77 @@ if(restatements) {
 -- rf$attribute.name restatement finder, also used by the insert and update triggers for idempotent attributes
 -- rc$attribute.name restatement constraint (available only in attributes that cannot have restatements)
 -----------------------------------------------------------------------------------------------------------------------
-IF Object_ID('$attribute.capsule$.rf$attribute.name', 'FN') IS NULL
+CREATE OR REPLACE FUNCTION "$attribute.capsule"\."rf$attribute.name" (
+    posit $anchor.identity,
+    posited $schema.metadata.positingRange,
+    positor $schema.metadata.positorRange,
+    assertion char(1)
+)
+RETURNS smallint
+AS \$$\$$
+DECLARE
+    _posit $anchor.identity;
+    _posited $schema.metadata.positingRange;
+    _positor $schema.metadata.positorRange;
+    _assertion char(1);
 BEGIN
-    EXEC('
-    CREATE FUNCTION [$attribute.capsule].[rf$attribute.name] (
-        @posit $anchor.identity,
-        @posited $schema.metadata.positingRange,
-        @positor $schema.metadata.positorRange,
-        @reliable tinyint
-    )
-    RETURNS tinyint AS
-    BEGIN
-    DECLARE @id $anchor.identity;
-    DECLARE @value $valueType;
-    DECLARE @changed $attribute.timeRange;
-    SELECT
-        @id = $attribute.anchorReferenceName,
-        @value = $valueColumn,
-        @changed = $attribute.changingColumnName
-    FROM
-        [$attribute.capsule].[$attribute.positName]
-    WHERE
-        $attribute.identityColumnName = @posit;
-    RETURN (
-        CASE
-        WHEN @reliable = 0
-        THEN 0
-        WHEN EXISTS (
-            SELECT
-                @value
-            WHERE
-                @value = (
-                    SELECT TOP 1
-                        pre.$valueColumn
+    _posit := posit;
+    _posited := posited;
+    _positor := positor;
+    _assertion := assertion;
+    IF assertion = '?'
+    THEN RETURN 0;
+    ELSE
+        IF EXISTS (
+                SELECT
+                    a.value
+                FROM (
+                    SELECT
+                        "$attribute.anchorReferenceName"    as anchor,
+                        "$valueColumn"                      as value,
+                        "$attribute.changingColumnName"     as changed
                     FROM
-                        [$attribute.capsule].[r$attribute.name](
-                            @positor,
-                            @changed,
-                            @posited
-                        ) pre
+                        "$attribute.capsule"\."$attribute.positName"
                     WHERE
-                        pre.$attribute.anchorReferenceName = @id
-                    AND
-                        pre.$attribute.changingColumnName < @changed
-                    AND
-                        pre.$attribute.reliableColumnName = 1
-                    ORDER BY
-                        pre.$attribute.changingColumnName DESC,
-                        pre.$attribute.positingColumnName DESC
-                )
-        ) OR EXISTS (
-            SELECT
-                @value
-            WHERE
-                @value = (        
-                    SELECT TOP 1
-                        fol.$valueColumn
-                    FROM
-                        [$attribute.capsule].[f$attribute.name](
-                            @positor,
-                            @changed,
-                            @posited
-                        ) fol
-                    WHERE
-                        fol.$attribute.anchorReferenceName = @id
-                    AND
-                        fol.$attribute.changingColumnName > @changed
-                    AND
-                        fol.$attribute.reliableColumnName = 1
-                    ORDER BY
-                        fol.$attribute.changingColumnName ASC,
-                        fol.$attribute.positingColumnName DESC
-                )
-        )
-        THEN 1
-        ELSE 0
-        END
-    );
-    END
-    ');
+                        "$attribute.identityColumnName" = _posit
+                ) a
+                WHERE
+                    "$attribute.capsule"\."pre$attribute.name" (
+                        id := a.anchor,
+                        positor := _positor,
+                        changingTimepoint := a.changed,
+                        positingTimepoint := _posited,
+                        assertion := _assertion
+                    ) = a.value
+                    OR
+                    "$attribute.capsule"\."fol$attribute.name" (
+                        id := a.anchor,
+                        positor := _positor,
+                        changingTimepoint := a.changed,
+                        positingTimepoint := _posited,
+                        assertion := _assertion
+                    ) = a.value
+            )
+        THEN RETURN 1;
+        ELSE RETURN 0;
+        END IF;
+    END IF;
+END;
+\$$\$$ LANGUAGE plpgsql;
 ~*/
                 if(!attribute.isRestatable()) {
 /*~
-    ALTER TABLE [$attribute.capsule].[$attribute.annexName]
-    ADD CONSTRAINT [rc$attribute.annexName] CHECK (
-        [$attribute.capsule].[rf$attribute.name] (
-            $attribute.identityColumnName,
-            $attribute.positingColumnName,
-            $attribute.positorColumnName,
-            $attribute.reliableColumnName
-        ) = 0
-    );
+ALTER TABLE "$attribute.capsule"\."$attribute.annexName"
+ADD CONSTRAINT "rc$attribute.annexName" CHECK (
+    "$attribute.capsule"\."rf$attribute.name" (
+        "$attribute.identityColumnName",
+        "$attribute.positingColumnName",
+        "$attribute.positorColumnName",
+        "$attribute.assertionColumnName"
+    ) = 0
+);
 ~*/
                 }
-/*~
-END
-GO
-~*/
             }
         }
     }

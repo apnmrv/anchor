@@ -1,3 +1,4 @@
+if(schema.TRIGGERS) {
 /*~
 -- ATTRIBUTE TRIGGERS ------------------------------------------------------------------------------------------------
 --
@@ -11,196 +12,148 @@
 -- the previous or following value are stored. Others are silently ignored in
 -- order to avoid unnecessary temporal duplicates.
 --
+-- Note, that in PostgreSQL, INSTEAD OF INSERT triggers on views are row-level
+-- triggers, which means they execute once per row being inserted.
+--
 ~*/
-var anchor, attribute;
-while (anchor = schema.nextAnchor()) {
-    while(attribute = anchor.nextAttribute()) {
-        var statementTypes = "'N'";
-        if(attribute.isAssertive())
-            statementTypes += ",'D'";
-        if(attribute.isHistorized() && !attribute.isIdempotent())
-            statementTypes += ",'R'";
-        var changingParameter = attribute.isHistorized() ? 'v.' + attribute.changingColumnName : 'DEFAULT';
+    var anchor, attribute;
+    while (anchor = schema.nextAnchor()) {
+        while(attribute = anchor.nextAttribute()) {
+            var annexStatementTypes = "'N'", positStatementTypes = "'N'";
+            if(attribute.isAssertive()) {
+                annexStatementTypes += ",'D'";
+            }
+            if(attribute.isHistorized() && !attribute.isIdempotent()) {
+                annexStatementTypes += ",'R'";
+                positStatementTypes += ",'R'";
+            }
+            var changingTimepointParameterDefinition = attribute.isHistorized() ? 'changingTimepoint := NEW."' + attribute.changingColumnName + '",': '';
 /*~
 -- Insert trigger -----------------------------------------------------------------------------------------------------
 -- it_$attribute.name instead of INSERT trigger on $attribute.name
 -----------------------------------------------------------------------------------------------------------------------
-IF Object_ID('$attribute.capsule$.it_$attribute.name', 'TR') IS NOT NULL
-DROP TRIGGER [$attribute.capsule].[it_$attribute.name];
-GO
-CREATE TRIGGER [$attribute.capsule].[it_$attribute.name] ON [$attribute.capsule].[$attribute.name]
-INSTEAD OF INSERT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    DECLARE @maxVersion int;
-    DECLARE @currentVersion int;
-
-    DECLARE @$attribute.name TABLE (
-        $attribute.anchorReferenceName $anchor.identity not null,
-        $(schema.METADATA)? $attribute.metadataColumnName $schema.metadata.metadataType not null,
-        $(attribute.isHistorized())? $attribute.changingColumnName $attribute.timeRange not null,
-        $attribute.positorColumnName $schema.metadata.positorRange not null,
-        $attribute.positingColumnName $schema.metadata.positingRange not null,
-        $attribute.reliabilityColumnName $schema.metadata.reliabilityRange not null,
-        $attribute.reliableColumnName tinyint not null,
-        $(attribute.knotRange)? $attribute.valueColumnName $attribute.knot.identity not null, : $attribute.valueColumnName $attribute.dataRange not null,
-        $(attribute.hasChecksum())? $attribute.checksumColumnName varbinary(16) not null,
-        $attribute.versionColumnName bigint not null,
-        $attribute.statementTypeColumnName char(1) not null,
-        primary key(
-            $attribute.versionColumnName,
-            $attribute.positorColumnName,
-            $attribute.anchorReferenceName
-        )
-    );
-    INSERT INTO @$attribute.name
-    SELECT
-        i.$attribute.anchorReferenceName,
-        $(schema.METADATA)? i.$attribute.metadataColumnName,
-        $(attribute.isHistorized())? i.$attribute.changingColumnName,
-        i.$attribute.positorColumnName,
-        i.$attribute.positingColumnName,
-        i.$attribute.reliabilityColumnName,
-        case
-            when i.$attribute.reliabilityColumnName < $schema.metadata.reliableCutoff then 0
-            else 1
-        end,
-        i.$attribute.valueColumnName,
-        $(attribute.hasChecksum())? ${schema.metadata.encapsulation}$.MD5(cast(i.$attribute.valueColumnName as varbinary(max))),
-        DENSE_RANK() OVER (
-            PARTITION BY
-                i.$attribute.positorColumnName,
-                i.$attribute.anchorReferenceName
-            ORDER BY
-                $(attribute.isHistorized())? i.$attribute.changingColumnName ASC,
-                i.$attribute.positingColumnName ASC,
-                i.$attribute.reliabilityColumnName ASC
-        ),
-        'X'
-    FROM
-        inserted i;
-
-    SELECT
-        @maxVersion = max($attribute.versionColumnName),
-        @currentVersion = 0
-    FROM
-        @$attribute.name;
-    WHILE (@currentVersion < @maxVersion)
+CREATE OR REPLACE FUNCTION "$attribute.capsule"\."it_$attribute.name"()
+RETURNS TRIGGER
+AS \$$\$$
+    DECLARE statementType char(1);
     BEGIN
-        SET @currentVersion = @currentVersion + 1;
-        UPDATE v
-        SET
-            v.$attribute.statementTypeColumnName =
-                CASE
-                    WHEN EXISTS (
-                        SELECT TOP 1
-                            t.$attribute.identityColumnName
-                        FROM
-                            [$anchor.capsule].[t$anchor.name](v.$attribute.positorColumnName, $changingParameter, v.$attribute.positingColumnName, v.$attribute.reliableColumnName) t
-                        WHERE
-                            t.$attribute.anchorReferenceName = v.$attribute.anchorReferenceName
-                        $(attribute.isHistorized())? AND
-                            $(attribute.isHistorized())? t.$attribute.changingColumnName = v.$attribute.changingColumnName
-                        AND
-                            t.$attribute.reliabilityColumnName = v.$attribute.reliabilityColumnName
-                        AND
-                            $(attribute.hasChecksum())? t.$attribute.checksumColumnName = v.$attribute.checksumColumnName : t.$attribute.valueColumnName = v.$attribute.valueColumnName
-                    )
-                    THEN 'D' -- duplicate assertion
-                    WHEN p.$attribute.anchorReferenceName is not null
-                    THEN 'S' -- duplicate statement
+        -- Custom logic to insert data into the underlying tables.
+        statementType := (
+        SELECT
+            CASE
+                WHEN EXISTS (
+                    SELECT
+                        t."$attribute.identityColumnName"
+                    FROM
+                        "$anchor.capsule"\."t$anchor.name" (
+                                positor := NEW."$attribute.positorColumnName",
+                                $changingTimepointParameterDefinition
+                                positingTimepoint := NEW."$attribute.positingColumnName",
+                                assertion := NEW."$attribute.assertionColumnName"
+                         ) t
+                    WHERE
+                        t."$attribute.anchorReferenceName" = NEW."$attribute.anchorReferenceName"
+                    $(attribute.isHistorized())? AND
+                        $(attribute.isHistorized())? t."$attribute.changingColumnName" = NEW."$attribute.changingColumnName"
+                    AND
+                        t."$attribute.reliabilityColumnName" = NEW."$attribute.reliabilityColumnName"
+                    AND
+                        $(attribute.hasChecksum())? t."$attribute.checksumColumnName" = NEW."$attribute.checksumColumnName" : t."$attribute.valueColumnName" = NEW."$attribute.valueColumnName"
+                )
+                THEN 'D' -- duplicate assertion
+                WHEN p."$attribute.anchorReferenceName" is not null
+                THEN 'S' -- duplicate statement
 ~*/
             if(attribute.isHistorized()) {
-/*~
-                    WHEN EXISTS (
-                        SELECT
-                            $(attribute.hasChecksum())? v.$attribute.checksumColumnName : v.$attribute.valueColumnName
-                        WHERE
-                            $(attribute.hasChecksum())? v.$attribute.checksumColumnName =  : v.$attribute.valueColumnName =
-                                $attribute.capsule$.pre$attribute.name (
-                                    v.$attribute.anchorReferenceName,
-                                    v.$attribute.positorColumnName,
-                                    v.$attribute.changingColumnName,
-                                    v.$attribute.positingColumnName
-                                )
-                    ) OR EXISTS (
-                        SELECT
-                            $(attribute.hasChecksum())? v.$attribute.checksumColumnName : v.$attribute.valueColumnName
-                        WHERE
-                            $(attribute.hasChecksum())? v.$attribute.checksumColumnName = : v.$attribute.valueColumnName =
-                                $attribute.capsule$.fol$attribute.name (
-                                    v.$attribute.anchorReferenceName,
-                                    v.$attribute.positorColumnName,
-                                    v.$attribute.changingColumnName,
-                                    v.$attribute.positingColumnName
-                                )
-                    )
-                    THEN 'R' -- restatement
+                /*~
+                WHEN EXISTS (
+                    SELECT
+                        $(attribute.hasChecksum())? NEW."$attribute.checksumColumnName" : NEW."$attribute.valueColumnName"
+                    WHERE
+                        $(attribute.hasChecksum())? NEW."$attribute.checksumColumnName" =  : NEW."$attribute.valueColumnName" =
+                            "$attribute.capsule"\."pre$attribute.name" (
+                                id := NEW."$attribute.anchorReferenceName",
+                                positor := NEW."$attribute.positorColumnName",
+                                $changingTimepointParameterDefinition
+                                positingTimepoint := NEW."$attribute.positingColumnName",
+                                assertion := NEW."$attribute.assertionColumnName"
+                            )
+                ) OR EXISTS (
+                    SELECT
+                        $(attribute.hasChecksum())? NEW."$attribute.checksumColumnName" : NEW."$attribute.valueColumnName"
+                    WHERE
+                        $(attribute.hasChecksum())? NEW."$attribute.checksumColumnName" = : NEW."$attribute.valueColumnName" =
+                            "$attribute.capsule"\."fol$attribute.name" (
+                                id := NEW."$attribute.anchorReferenceName",
+                                positor := NEW."$attribute.positorColumnName",
+                                changingTimepoint := NEW."$attribute.changingColumnName",
+                                positingTimepoint := NEW."$attribute.positingColumnName",
+                                assertion := NEW."$attribute.assertionColumnName"
+                            )
+                )
+                THEN 'R' -- restatement
 ~*/
             }
 /*~
-                    ELSE 'N' -- new statement
-                END
-        FROM
-            @$attribute.name v
-        LEFT JOIN
-            [$attribute.capsule].[$attribute.positName] p
-        ON
-            p.$attribute.anchorReferenceName = v.$attribute.anchorReferenceName
+                ELSE 'N' -- new statement
+            END
+        FROM "$attribute.capsule"\."$attribute.positName" p
+        WHERE
+            p."$attribute.anchorReferenceName" = NEW."$attribute.anchorReferenceName"
         $(attribute.isHistorized())? AND
-            $(attribute.isHistorized())? p.$attribute.changingColumnName = v.$attribute.changingColumnName
+            $(attribute.isHistorized())? p."$attribute.changingColumnName" = NEW."$attribute.changingColumnName"
         AND
-            $(attribute.hasChecksum())? p.$attribute.checksumColumnName = v.$attribute.checksumColumnName : p.$attribute.valueColumnName = v.$attribute.valueColumnName
-        WHERE
-            v.$attribute.versionColumnName = @currentVersion;
+            $(attribute.hasChecksum())? p."$attribute.checksumColumnName" = NEW."$attribute.checksumColumnName" : p."$attribute.valueColumnName" = NEW."$attribute.valueColumnName"
+        );
 
-        INSERT INTO [$attribute.capsule].[$attribute.positName] (
-            $attribute.anchorReferenceName,
-            $(attribute.isHistorized())? $attribute.changingColumnName,
-            $attribute.valueColumnName
-        )
-        SELECT
-            $attribute.anchorReferenceName,
-            $(attribute.isHistorized())? $attribute.changingColumnName,
-            $attribute.valueColumnName
-        FROM
-            @$attribute.name
-        WHERE
-            $attribute.versionColumnName = @currentVersion
-        AND
-            $attribute.statementTypeColumnName in ($statementTypes);
+        IF statementType in ($positStatementTypes)
+        THEN -- Insert into "$attribute.capsule"\."$attribute.positName"
+            INSERT INTO "$attribute.capsule"\."$attribute.positName" (
+                "$attribute.anchorReferenceName",
+                $(attribute.isHistorized())? "$attribute.changingColumnName",
+                "$attribute.valueColumnName"
+            )
+            VALUES (
+                NEW."$attribute.anchorReferenceName",
+                $(attribute.isHistorized())? NEW."$attribute.changingColumnName",
+                NEW."$attribute.valueColumnName"
+            );
 
-        INSERT INTO [$attribute.capsule].[$attribute.annexName] (
-            $(schema.METADATA)? $attribute.metadataColumnName,
-            $attribute.identityColumnName,
-            $attribute.positorColumnName,
-            $attribute.positingColumnName,
-            $attribute.reliabilityColumnName
-        )
-        SELECT
-            $(schema.METADATA)? v.$attribute.metadataColumnName,
-            p.$attribute.identityColumnName,
-            v.$attribute.positorColumnName,
-            v.$attribute.positingColumnName,
-            v.$attribute.reliabilityColumnName
-        FROM
-            @$attribute.name v
-        JOIN
-            [$attribute.capsule].[$attribute.positName] p
-        ON
-            p.$attribute.anchorReferenceName = v.$attribute.anchorReferenceName
-        $(attribute.isHistorized())? AND
-            $(attribute.isHistorized())? p.$attribute.changingColumnName = v.$attribute.changingColumnName
-        AND
-            $(attribute.hasChecksum())? p.$attribute.checksumColumnName = v.$attribute.checksumColumnName : p.$attribute.valueColumnName = v.$attribute.valueColumnName
-        WHERE
-            v.$attribute.versionColumnName = @currentVersion
-        AND
-            $attribute.statementTypeColumnName in ('S',$statementTypes);
-    END
-END
-GO
+        ELSE
+            IF statementType in ('S',$annexStatementTypes) -- Insert into $attribute.capsule\.$attribute.annexName
+            THEN
+                INSERT INTO "$attribute.capsule"\."$attribute.annexName" (
+                    $(schema.METADATA)? "$attribute.metadataColumnName",
+                    "$attribute.identityColumnName",
+                    "$attribute.positorColumnName",
+                    "$attribute.positingColumnName",
+                    "$attribute.reliabilityColumnName"
+                )
+                SELECT
+                    $(schema.METADATA)? NEW."$attribute.metadataColumnName",
+                    p."$attribute.identityColumnName",
+                    NEW."$attribute.positorColumnName",
+                    NEW."$attribute.positingColumnName",
+                    NEW."$attribute.reliabilityColumnName"
+                FROM "$attribute.capsule"\."$attribute.positName" p
+                WHERE
+                    p."$attribute.anchorReferenceName" = NEW."$attribute.anchorReferenceName"
+                $(attribute.isHistorized())? AND
+                    $(attribute.isHistorized())? p."$attribute.changingColumnName" = NEW."$attribute.changingColumnName"
+                AND
+                    $(attribute.hasChecksum())? p."$attribute.checksumColumnName" = NEW."$attribute.checksumColumnName" : p."$attribute.valueColumnName" = NEW."$attribute.valueColumnName";
+            END IF;
+        END IF;
+    END;
+\$$\$$ LANGUAGE plpgsql;
+
+
+DROP TRIGGER IF EXISTS "it_$attribute.name" ON "$attribute.capsule"\."$attribute.name";
+CREATE TRIGGER "it_$attribute.name"
+INSTEAD OF INSERT ON "$attribute.capsule"\."$attribute.name"
+FOR EACH ROW
+EXECUTE FUNCTION "$attribute.capsule"\."it_$attribute.name"();
 ~*/
-    } // end of loop over attributes
+        } // end of loop over attributes
+    }
 }

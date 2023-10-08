@@ -12,8 +12,6 @@ var knot;
 while (knot = schema.nextKnot()) {
     if (knot.isGenerator())
         knot.identityGenerator = schema.metadata.identityProperty;
-    if(schema.METADATA)
-        knot.metadataDefinition = "${knot.metadataColumnName}" + ' ' + schema.metadata.metadataType + ' not null,';
 /*~
 -- Knot table ---------------------------------------------------------------------------------------------------------
 -- $knot.name table
@@ -22,7 +20,7 @@ CREATE TABLE IF NOT EXISTS "$knot.capsule"\."$knot.name" (
     "$knot.identityColumnName" $knot.identity $knot.identityGenerator not null,
     "$knot.valueColumnName" $knot.dataRange not null,
     $(knot.hasChecksum())? "$knot.checksumColumnName" bytea generated always as (cast(MD5(cast("$knot.valueColumnName" as text)) as bytea)) stored,
-    $knot.metadataDefinition
+    $(schema.METADATA)? "$knot.metadataColumnName" $schema.metadata.metadataType not null,
 
     constraint "pk$knot.name" primary key (
         "$knot.identityColumnName"

@@ -75,7 +75,3 @@ DROP VIEW IF EXISTS $anchor.capsule\.l$anchor.name;
 ~*/
     } // end of if anchor has any attributes
 }
-
-/*~
-*/
-~*/

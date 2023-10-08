@@ -8,7 +8,17 @@ SQL/PostgreSQL/crt/CreateKnots.js
 SQL/PostgreSQL/crt/CreateAnchorsAndAttributes.js
 SQL/PostgreSQL/crt/CreateAttributeAssembledViews.js
 SQL/PostgreSQL/crt/CreateAttributeRewinders.js
+SQL/PostgreSQL/crt/AddAttributeRestatementConstraints.js
 SQL/PostgreSQL/biz/DropAnchorBusinessPerspectives.js
 SQL/PostgreSQL/crt/CreateAnchorPerspectives.js
 SQL/PostgreSQL/biz/CreateAnchorBusinessPerspectives.js
+SQL/PostgreSQL/crt/CreateAttributeTriggers.js
+SQL/PostgreSQL/crt/CreateAnchorTriggers.js
 SQL/PostgreSQL/crt/CreateTies.js
+SQL/PostgreSQL/crt/CreateTieAssembledViews.js
+SQL/PostgreSQL/crt/AddTieRestatementConstraints.js
+SQL/PostgreSQL/crt/CreateTieRewinders.js
+SQL/PostgreSQL/biz/DropTieBusinessPerspectives.js
+SQL/PostgreSQL/crt/CreateTiePerspectives.js
+SQL/PostgreSQL/biz/CreateTieBusinessPerspectives.js
+SQL/PostgreSQL/crt/CreateTieTriggers.js

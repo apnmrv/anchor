@@ -69,7 +69,3 @@ DROP FUNCTION IF EXISTS $tie.capsule\.p$tie.name(
 DROP VIEW IF EXISTS $tie.capsule\.l$tie.name;
 ~*/
 }
-
-/*~
-*/
-~*/

@@ -23,17 +23,17 @@ while (anchor = schema.nextAnchor()) {
 -- Attribute posit rewinder -------------------------------------------------------------------------------------------
 -- r$attribute.positName rewinding over changing time function
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$attribute.capsule"\."r$attribute.positName" (
+CREATE OR REPLACE FUNCTION "$attribute.capsule"\."r$attribute.positName" (
     changingTimepoint $attribute.timeRange = $schema.EOT::$attribute.timeRange
 )
 RETURNS TABLE (
-            "$attribute.identityColumnName" $attribute.identity $attribute.identityGenerator,
+            "$attribute.identityColumnName" $attribute.identity,
             "$attribute.anchorReferenceName" $anchor.identity,
             $(attribute.hasChecksum())? "$attribute.checksumColumnName" bytea,
             "$attribute.valueColumnName" $(attribute.isKnotted())? $attribute.knot.identity, : $attribute.dataRange,
             "$attribute.changingColumnName" $schema.metadata.changingRange
 )
-AS \$$query\$$
+AS \$$\$$
     SELECT
         "$attribute.identityColumnName",
         "$attribute.anchorReferenceName",
@@ -44,23 +44,22 @@ AS \$$query\$$
         "$attribute.capsule"\."$attribute.positName"
     WHERE
         "$attribute.changingColumnName" <= changingTimepoint;
-\$$query\$$
-LANGUAGE SQL;
+\$$\$$ LANGUAGE SQL;
 
 -- Attribute posit forwarder ------------------------------------------------------------------------------------------
 -- f$attribute.positName forwarding over changing time function
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$attribute.capsule"\."f$attribute.positName" (
+CREATE OR REPLACE FUNCTION "$attribute.capsule"\."f$attribute.positName" (
     changingTimepoint $attribute.timeRange = $schema.EOT::$attribute.timeRange
 )
 RETURNS TABLE (
-    "$attribute.identityColumnName" $attribute.identity $attribute.identityGenerator,
+    "$attribute.identityColumnName" $attribute.identity,
     "$attribute.anchorReferenceName" $anchor.identity,
     $(attribute.hasChecksum())? "$attribute.checksumColumnName" bytea,
     "$attribute.valueColumnName" $(attribute.isKnotted())? $attribute.knot.identity, : $attribute.dataRange,
     "$attribute.changingColumnName" $schema.metadata.changingRange
 )
-AS \$$query\$$
+AS \$$\$$
     SELECT
         "$attribute.identityColumnName",
         "$attribute.anchorReferenceName",
@@ -71,24 +70,23 @@ AS \$$query\$$
         "$attribute.capsule"\."$attribute.positName"
     WHERE
         "$attribute.changingColumnName" > changingTimepoint;
-\$$query\$$
-LANGUAGE SQL;
+\$$\$$ LANGUAGE SQL;
 
 -- Attribute annex rewinder -------------------------------------------------------------------------------------------
 -- r$attribute.annexName rewinding over positing time function
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$attribute.capsule"\."r$attribute.annexName" (
+CREATE OR REPLACE FUNCTION "$attribute.capsule"\."r$attribute.annexName" (
     positingTimepoint $schema.metadata.positingRange = $schema.EOT::$schema.metadata.positingRange
 )
 RETURNS TABLE (
     $(schema.METADATA)? "$attribute.metadataColumnName" $schema.metadata.metadataType,
-    "$attribute.identityColumnName" $attribute.identity $attribute.identityGenerator,
+    "$attribute.identityColumnName" $attribute.identity,
     "$attribute.positingColumnName" $schema.metadata.positingRange,
     "$attribute.positorColumnName" $schema.metadata.positorRange,
     "$attribute.reliabilityColumnName" $schema.metadata.reliabilityRange,
     "$attribute.assertionColumnName" char(1)
 )
-AS \$$query\$$
+AS \$$\$$
     SELECT
         $(schema.METADATA)? "$attribute.metadataColumnName",
         "$attribute.identityColumnName",
@@ -100,20 +98,19 @@ AS \$$query\$$
         "$attribute.capsule"\."$attribute.annexName"
     WHERE
         "$attribute.positingColumnName" <= positingTimepoint;
-\$$query\$$
-LANGUAGE SQL;
+\$$\$$ LANGUAGE SQL;
 
 -- Attribute assembled rewinder ---------------------------------------------------------------------------------------
 -- r$attribute.name rewinding over changing and positing time function
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$attribute.capsule"\."r$attribute.name" (
+CREATE OR REPLACE FUNCTION "$attribute.capsule"\."r$attribute.name" (
     positor $schema.metadata.positorRange = 0::$schema.metadata.positorRange,
     changingTimepoint $attribute.timeRange = $schema.EOT::$attribute.timeRange,
     positingTimepoint $schema.metadata.positingRange = $schema.EOT::$schema.metadata.positingRange
 )
 RETURNS TABLE (
     $(schema.METADATA)? "$attribute.metadataColumnName" $schema.metadata.metadataType,
-    "$attribute.identityColumnName" $attribute.identity $attribute.identityGenerator,
+    "$attribute.identityColumnName" $attribute.identity,
     "$attribute.positingColumnName" $schema.metadata.positingRange,
     "$attribute.positorColumnName" $schema.metadata.positorRange,
     "$attribute.reliabilityColumnName" $schema.metadata.reliabilityRange,
@@ -123,7 +120,7 @@ RETURNS TABLE (
     "$attribute.valueColumnName" $(attribute.isKnotted())? $attribute.knot.identity, : $attribute.dataRange,
     "$attribute.changingColumnName" $attribute.timeRange
 )
-AS \$$query\$$
+AS \$$\$$
     SELECT
         $(schema.METADATA)? a."$attribute.metadataColumnName",
         p."$attribute.identityColumnName",
@@ -157,20 +154,19 @@ AS \$$query\$$
                 sub."$attribute.positingColumnName" DESC
             LIMIT 1
         );
-\$$query\$$
-LANGUAGE SQL;
+\$$\$$ LANGUAGE SQL;
 
 -- Attribute assembled forwarder --------------------------------------------------------------------------------------
 -- f$attribute.name forwarding over changing and rewinding over positing time function
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$attribute.capsule"\."f$attribute.name" (
+CREATE OR REPLACE FUNCTION "$attribute.capsule"\."f$attribute.name" (
     positor $schema.metadata.positorRange = 0::$schema.metadata.positorRange,
     changingTimepoint $attribute.timeRange = $schema.EOT::$attribute.timeRange,
     positingTimepoint $schema.metadata.positingRange = $schema.EOT::$schema.metadata.positingRange
 )
 RETURNS TABLE (
     $(schema.METADATA)? "$attribute.metadataColumnName" $schema.metadata.metadataType,
-    "$attribute.identityColumnName" $attribute.identity $attribute.identityGenerator,
+    "$attribute.identityColumnName" $attribute.identity,
     "$attribute.positingColumnName" $schema.metadata.positingRange,
     "$attribute.positorColumnName" $schema.metadata.positorRange,
     "$attribute.reliabilityColumnName" $schema.metadata.reliabilityRange,
@@ -180,9 +176,9 @@ RETURNS TABLE (
     "$attribute.valueColumnName" $(attribute.isKnotted())? $attribute.knot.identity, : $attribute.dataRange,
     "$attribute.changingColumnName" $schema.metadata.changingRange
 )
-AS \$$query\$$
+AS \$$\$$
     SELECT
-        $(schema.METADATA)? "a.$attribute.metadataColumnName",
+        $(schema.METADATA)? a."$attribute.metadataColumnName",
         p."$attribute.identityColumnName",
         a."$attribute.positingColumnName",
         a."$attribute.positorColumnName",
@@ -214,13 +210,12 @@ AS \$$query\$$
                 sub."$attribute.positingColumnName" DESC
             LIMIT 1
         );
-\$$query\$$
-LANGUAGE SQL;
+\$$\$$ LANGUAGE SQL;
 
 -- Attribute previous value -------------------------------------------------------------------------------------------
 -- pre$attribute.name function for getting previous value
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$attribute.capsule"\."pre$attribute.name" (
+CREATE OR REPLACE FUNCTION "$attribute.capsule"\."pre$attribute.name" (
     id $anchor.identity,
     positor $schema.metadata.positorRange = 0::$schema.metadata.positorRange,
     changingTimepoint $attribute.timeRange = $schema.EOT::$attribute.timeRange,
@@ -228,7 +223,7 @@ CREATE FUNCTION "$attribute.capsule"\."pre$attribute.name" (
     assertion char(1) = null::char(1)
 )
 RETURNS $returnType
-AS \$$query\$$
+AS \$$\$$
         SELECT
             $(attribute.hasChecksum())? pre."$attribute.checksumColumnName" : pre."$attribute.valueColumnName"
         FROM
@@ -247,13 +242,12 @@ AS \$$query\$$
             pre."$attribute.changingColumnName" DESC,
             pre."$attribute.positingColumnName" DESC
         LIMIT 1;
-\$$query\$$
-LANGUAGE SQL;
+\$$\$$ LANGUAGE SQL;
 
 -- Attribute following value ------------------------------------------------------------------------------------------
 -- fol$attribute.name function for getting following value
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$attribute.capsule"\."fol$attribute.name" (
+CREATE OR REPLACE FUNCTION "$attribute.capsule"\."fol$attribute.name" (
     id $anchor.identity,
     positor $schema.metadata.positorRange = 0::$schema.metadata.positorRange,
     changingTimepoint $attribute.timeRange = $schema.EOT::$attribute.timeRange,
@@ -261,7 +255,7 @@ CREATE FUNCTION "$attribute.capsule"\."fol$attribute.name" (
     assertion char(1) = null::char(1)
 )
 RETURNS $returnType
-AS \$$query\$$
+AS \$$\$$
     SELECT
         $(attribute.hasChecksum())? fol."$attribute.checksumColumnName" : fol."$attribute.valueColumnName"
     FROM
@@ -280,8 +274,7 @@ AS \$$query\$$
         fol."$attribute.changingColumnName" ASC,
         fol."$attribute.positingColumnName" DESC
     LIMIT 1;
-\$$query\$$
-LANGUAGE SQL;
+\$$\$$ LANGUAGE SQL;
 
 ~*/
         } else {
@@ -290,18 +283,18 @@ LANGUAGE SQL;
 -- Attribute annex rewinder -------------------------------------------------------------------------------------------
 -- r$attribute.annexName rewinding over positing time function
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$attribute.capsule"\."r$attribute.annexName" (
+CREATE OR REPLACE FUNCTION "$attribute.capsule"\."r$attribute.annexName" (
     positingTimepoint $schema.metadata.positingRange = $schema.EOT::$schema.metadata.positingRange
 )
 RETURNS TABLE (
     $(schema.METADATA)? "$attribute.metadataColumnName" $schema.metadata.metadataType,
-    "$attribute.identityColumnName" $attribute.identity $attribute.identityGenerator,
+    "$attribute.identityColumnName" $attribute.identity,
     "$attribute.positingColumnName" $schema.metadata.positingRange,
     "$attribute.positorColumnName" $schema.metadata.positorRange,
     "$attribute.reliabilityColumnName" $schema.metadata.reliabilityRange,
     "$attribute.assertionColumnName" char(1)
 )
-AS \$$query\$$
+AS \$$\$$
     SELECT
         $(schema.METADATA)? "$attribute.metadataColumnName",
         "$attribute.identityColumnName",
@@ -313,19 +306,19 @@ AS \$$query\$$
         "$attribute.capsule"\."$attribute.annexName"
     WHERE
         "$attribute.positingColumnName" <= positingTimepoint;
-\$$query\$$
+\$$\$$
 LANGUAGE SQL;
 
 -- Attribute assembled rewinder ---------------------------------------------------------------------------------------
 -- r$attribute.name rewinding over changing and positing time function
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$attribute.capsule"\."r$attribute.name" (
+CREATE OR REPLACE FUNCTION "$attribute.capsule"\."r$attribute.name" (
     positor $schema.metadata.positorRange = 0::$schema.metadata.positorRange,
     positingTimepoint $schema.metadata.positingRange = $schema.EOT::$schema.metadata.positingRange
 )
 RETURNS TABLE (
     $(schema.METADATA)? "$attribute.metadataColumnName" $schema.metadata.metadataType,
-    "$attribute.identityColumnName" $attribute.identity $attribute.identityGenerator,
+    "$attribute.identityColumnName" $attribute.identity,
     "$attribute.positingColumnName" $schema.metadata.positingRange,
     "$attribute.positorColumnName" $schema.metadata.positorRange,
     "$attribute.reliabilityColumnName" $schema.metadata.reliabilityRange,
@@ -334,7 +327,7 @@ RETURNS TABLE (
     $(attribute.hasChecksum())? "$attribute.checksumColumnName" bytea,
     "$attribute.valueColumnName" $(attribute.isKnotted())? $attribute.knot.identity : $attribute.dataRange
 )
-AS \$$query\$$
+AS \$$\$$
     SELECT
         $(schema.METADATA)? a."$attribute.metadataColumnName",
         p."$attribute.identityColumnName",
@@ -367,8 +360,7 @@ AS \$$query\$$
                 sub."$attribute.positingColumnName" DESC
             LIMIT 1
         );
-\$$query\$$
-LANGUAGE SQL;
+\$$\$$ LANGUAGE SQL;
 ~*/
         }
     }

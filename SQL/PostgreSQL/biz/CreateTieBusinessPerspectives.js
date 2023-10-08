@@ -29,203 +29,139 @@ while (tie = schema.nextTie()) {
 -- Latest perspective -------------------------------------------------------------------------------------------------
 -- Latest_$tie.businessName viewed by the latest available information (may include future versions)
 -----------------------------------------------------------------------------------------------------------------------
-CREATE VIEW [$tie.capsule].[Latest_$tie.businessName] AS
+CREATE OR REPLACE VIEW "$tie.capsule"\."Latest_$tie.businessName" AS
 SELECT
-    $(schema.CRT)? tie.Positor,
+    $(schema.CRT)? tie."Positor",
 ~*/
         while (role = tie.nextRole()) {
             if(role.knot) {
                 knot = role.knot;
 /*~
-    tie.$role.knotValueColumnName AS [$role.businessName]$(tie.hasMoreRoles())?,
+    tie."$role.knotValueColumnName" AS $role.businessName$(tie.hasMoreRoles())?,
 ~*/
             }
             else {
 /*~
-    tie.$role.columnName as [$role.businessColumnName]$(tie.hasMoreRoles())?,
+    tie."$role.columnName" as $role.businessColumnName$(tie.hasMoreRoles())?,
 ~*/
             }
         }
 /*~
 FROM
-    [$tie.capsule].[l$tie.name] tie;
-GO
+    "$tie.capsule"\."l$tie.name" tie;
+
 -- Point-in-time perspective ------------------------------------------------------------------------------------------
 -- Point_$tie.businessName viewed by the latest available information (may include future versions)
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION [$tie.capsule].[Point_$tie.businessName] (
-    @changingTimepoint $schema.metadata.chronon
+CREATE FUNCTION "$tie.capsule"\."Point_$tie.businessName" (
+    changingTimepoint $schema.metadata.chronon
 )
-RETURNS TABLE AS RETURN
+RETURNS TABLE (
+    "Positor" $schema.metadata.positorRange,
+~*/
+    while (role = tie.nextRole()) {
+        if(role.knot) {
+            knot = role.knot;
+/*~
+    "$role.businessName" $knot.dataRange$(tie.hasMoreRoles())?,
+~*/
+        }
+        else {
+/*~
+    "$role.businessColumnName" $(role.anchor)? $role.anchor.identity : $role.knot.identity ~*/
+            if(tie.hasMoreRoles()) {
+                /*~,~*/
+            }/*~
+~*/
+        }
+    }
+/*~
+
+) AS \$$\$$
 SELECT
-    $(schema.CRT)? tie.Positor,
+    $(schema.CRT)? tie."Positor",
 ~*/
         while (role = tie.nextRole()) {
             if(role.knot) {
                 knot = role.knot;
 /*~
-    tie.$role.knotValueColumnName AS [$role.businessName]$(tie.hasMoreRoles())?,
+    tie."$role.knotValueColumnName" AS "$role.businessName"$(tie.hasMoreRoles())?,
 ~*/
             }
             else {
 /*~
-    tie.$role.columnName as [$role.businessColumnName]$(tie.hasMoreRoles())?,
+    tie."$role.columnName" as "$role.businessColumnName"$(tie.hasMoreRoles())?,
 ~*/
             }
         }
 /*~
 FROM
-    [$tie.capsule].[p$tie.name](@changingTimepoint) tie
-GO
+    "$tie.capsule"\."p$tie.name"(changingTimepoint) tie
+\$$\$$ LANGUAGE SQL;
 -- Now perspective ----------------------------------------------------------------------------------------------------
 -- Current_$tie.businessName viewed as it currently is (cannot include future versions)
 -----------------------------------------------------------------------------------------------------------------------
-CREATE VIEW [$tie.capsule].[Current_$tie.businessName]
+CREATE OR REPLACE VIEW "$tie.capsule"\."Current_$tie.businessName"
 AS
 SELECT
     *
 FROM
-    [$tie.capsule].[Point_$tie.businessName]($schema.metadata.now::timestamp);
-GO
+    "$tie.capsule"\."Point_$tie.businessName"($schema.metadata.now::$schema.metadata.chronon);
 ~*/
         if(tie.isHistorized()) {
 /*~
 -- Difference perspective ---------------------------------------------------------------------------------------------
 -- Difference_$tie.businessName showing all differences between the given timepoints
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION [$tie.capsule].[Difference_$tie.businessName] (
-    @intervalStart $schema.metadata.chronon,
-    @intervalEnd $schema.metadata.chronon
+CREATE FUNCTION "$tie.capsule"\."Difference_$tie.businessName" (
+    intervalStart $schema.metadata.chronon,
+    intervalEnd $schema.metadata.chronon
 )
-RETURNS TABLE AS RETURN
-SELECT
-    $(schema.CRT)? tie.$tie.positorColumnName as [Positor],
-    $(tie.isHistorized())? tie.$tie.changingColumnName as [Time_of_Change],
+RETURNS TABLE (
+    "Positor" $schema.metadata.positorRange,
+    "Time_of_Change" $schema.metadata.chronon,
 ~*/
         while (role = tie.nextRole()) {
             if(role.knot) {
                 knot = role.knot;
 /*~
-    tie.$role.knotValueColumnName AS [$role.businessName]$(tie.hasMoreRoles())?,
+    $role.businessName $knot.dataRange$(tie.hasMoreRoles())?,
 ~*/
             }
             else {
 /*~
-    tie.$role.columnName as [$role.businessColumnName]$(tie.hasMoreRoles())?,
+    $role.businessColumnName  $(role.anchor)? $role.anchor.identity not null, : $role.knot.identity~*/
+                if(tie.hasMoreRoles()) {
+                    /*~,~*/
+                }
+            }
+        }
+/*~
+) AS \$$\$$
+SELECT
+    $(schema.CRT)? tie."$tie.positorColumnName" as "Positor",
+    $(tie.isHistorized())? tie."$tie.changingColumnName" as "Time_of_Change",
+~*/
+        while (role = tie.nextRole()) {
+            if(role.knot) {
+                knot = role.knot;
+/*~
+    tie."$role.knotValueColumnName" AS $role.businessName$(tie.hasMoreRoles())?,
+~*/
+            }
+            else {
+/*~
+    tie."$role.columnName" as $role.businessColumnName$(tie.hasMoreRoles())?,
 ~*/
             }
         }
 /*~
 FROM
-    [$tie.capsule].[d$tie.name](@intervalStart, @intervalEnd) tie;
-GO
+    "$tie.capsule"\."d$tie.name"(intervalStart, intervalEnd) tie;
+\$$\$$ LANGUAGE SQL;
 ~*/
     }
 // -------------------------------------------------- EQUIVALENCE -----------------------------------------------------
-    if(schema.EQUIVALENCE) {
-/*~
--- Latest equivalence perspective -------------------------------------------------------------------------------------
--- EQ_Latest_$tie.businessName viewed by the latest available information (may include future versions)
------------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION [$tie.capsule].[EQ_Latest_$tie.businessName] (
-    @equivalent $schema.metadata.equivalentRange
-)
-RETURNS TABLE AS RETURN
-SELECT
-    $(schema.CRT)? tie.Positor,
-~*/
-        while (role = tie.nextRole()) {
-            if(role.knot) {
-                knot = role.knot;
-/*~
-    tie.$role.knotValueColumnName AS [$role.businessName]$(tie.hasMoreRoles())?,
-~*/
-            }
-            else {
-/*~
-    tie.$role.columnName as [$role.businessColumnName]$(tie.hasMoreRoles())?,
-~*/
-            }
-        }
-/*~
-FROM
-    [$tie.capsule].[el$tie.name](@equivalent) tie;
-GO
--- Point-in-time equivalence perspective ------------------------------------------------------------------------------
--- EQ_Point_$tie.businessName viewed by the latest available information (may include future versions)
------------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION [$tie.capsule].[EQ_Point_$tie.businessName] (
-    @equivalent $schema.metadata.equivalentRange,
-    @changingTimepoint $schema.metadata.chronon
-)
-RETURNS TABLE AS RETURN
-SELECT
-    $(schema.CRT)? tie.Positor,
-~*/
-        while (role = tie.nextRole()) {
-            if(role.knot) {
-                knot = role.knot;
-/*~
-    tie.$role.knotValueColumnName AS [$role.businessName]$(tie.hasMoreRoles())?,
-~*/
-            }
-            else {
-/*~
-    tie.$role.columnName as [$role.businessColumnName]$(tie.hasMoreRoles())?,
-~*/
-            }
-        }
-/*~
-FROM
-    [$tie.capsule].[ep$tie.name](@equivalent, @changingTimepoint) tie
-GO
--- Now equivalence perspective ----------------------------------------------------------------------------------------
--- EQ_Current_$tie.businessName viewed as it currently is (cannot include future versions)
------------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION [$tie.capsule].[EQ_Current_$tie.businessName] (
-    @equivalent $schema.metadata.equivalentRange
-)
-RETURNS TABLE AS RETURN
-SELECT
-    *
-FROM
-    [$tie.capsule].[EQ_Point_$tie.businessName](@equivalent, $schema.metadata.now);
-GO
-~*/
-        if(tie.isHistorized()) {
-/*~
--- Difference equivalence perspective ---------------------------------------------------------------------------------
--- EQ_Difference_$tie.businessName showing all differences between the given timepoints
------------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION [$tie.capsule].[EQ_Difference_$tie.businessName] (
-    @equivalent $schema.metadata.equivalentRange,
-    @intervalStart $schema.metadata.chronon,
-    @intervalEnd $schema.metadata.chronon
-)
-RETURNS TABLE AS RETURN
-SELECT
-    $(schema.CRT)? tie.$tie.positorColumnName as [Positor],
-    $(tie.isHistorized())? tie.$tie.changingColumnName as [Time_of_Change],
-~*/
-        while (role = tie.nextRole()) {
-            if(role.knot) {
-                knot = role.knot;
-/*~
-    tie.$role.knotValueColumnName AS [$role.businessName]$(tie.hasMoreRoles())?,
-~*/
-            }
-            else {
-/*~
-    tie.$role.columnName as [$role.businessColumnName]$(tie.hasMoreRoles())?,
-~*/
-            }
-        }
-/*~
-FROM
-    [$tie.capsule].[ed$tie.name](@equivalent, @intervalStart, @intervalEnd) tie;
-GO
-~*/
-    }
-    } // end of equivalence
+// TODO: implement for PostgreSQL
 } // end of loop over ties
 }

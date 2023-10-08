@@ -44,7 +44,7 @@ DROP FUNCTION IF EXISTS "$anchor.capsule"\."t$anchor.name";
 -- Time traveling perspective -----------------------------------------------------------------------------------------
 -- t$anchor.name viewed as given by the input parameters
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$anchor.capsule"\."t$anchor.name" (
+CREATE OR REPLACE FUNCTION "$anchor.capsule"\."t$anchor.name" (
     positor $schema.metadata.positorRange = 0::$schema.metadata.positorRange,
     changingTimepoint $schema.metadata.chronon = $schema.EOT::$schema.metadata.chronon,
     positingTimepoint $schema.metadata.positingRange = $schema.EOT::$schema.metadata.positingRange,
@@ -84,7 +84,7 @@ RETURNS TABLE (
         }
 /*~    
 )
-AS \$$query\$$
+AS \$$\$$
 SELECT
     "$anchor.mnemonic"\."$anchor.identityColumnName",
     $(schema.METADATA)? "$anchor.mnemonic"\."$anchor.metadataColumnName",
@@ -160,8 +160,7 @@ ON
             }
         }
 /*~
-\$$query\$$ 
-LANGUAGE SQL;
+\$$\$$ LANGUAGE SQL;
 
 -- Latest perspective -------------------------------------------------------------------------------------------------
 -- l$anchor.name viewed by the latest available information for all positors (may include future versions)
@@ -185,7 +184,7 @@ JOIN LATERAL
 -- Point-in-time perspective ------------------------------------------------------------------------------------------
 -- p$anchor.name viewed as it was on the given timepoint
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$anchor.capsule"\."p$anchor.name" (
+CREATE OR REPLACE FUNCTION "$anchor.capsule"\."p$anchor.name" (
     changingTimepoint $schema.metadata.chronon
 )
 RETURNS TABLE (
@@ -223,7 +222,7 @@ RETURNS TABLE (
 ~*/
         }
 /*~
-) AS \$$query\$$
+) AS \$$\$$
 SELECT
     p."$schema.metadata.positorSuffix",
     cast(null as $schema.metadata.reliabilityRange) as "$schema.metadata.reliabilitySuffix",
@@ -237,8 +236,7 @@ JOIN LATERAL
         $schema.EOT::$schema.metadata.positingRange,
         '+'::char(1) -- positve assertions only
     ) "$anchor.mnemonic" ON true;
-\$$query\$$
-LANGUAGE SQL;
+\$$\$$ LANGUAGE SQL;
 -- Now perspective ----------------------------------------------------------------------------------------------------
 -- n$anchor.name viewed as it currently is (cannot include future versions)
 -----------------------------------------------------------------------------------------------------------------------
@@ -263,7 +261,7 @@ JOIN LATERAL
 -- Difference perspective ---------------------------------------------------------------------------------------------
 -- d$anchor.name showing all differences between the given timepoints and optionally for a subset of attributes
 -----------------------------------------------------------------------------------------------------------------------
-CREATE FUNCTION "$anchor.capsule"\."d$anchor.name" (
+CREATE OR REPLACE FUNCTION "$anchor.capsule"\."d$anchor.name" (
     intervalStart $schema.metadata.chronon,
     intervalEnd $schema.metadata.chronon,
     selection text = null::text
@@ -302,7 +300,7 @@ RETURNS TABLE (
             }
 /*~
 )
-AS \$$query\$$
+AS \$$\$$
 SELECT
     timepoints.inspectedTimepoint,
     "$anchor.mnemonic"\.*
@@ -338,8 +336,8 @@ JOIN LATERAL
         '+'::char(1) -- positve assertions only
     ) "$anchor.mnemonic"
 ON "$anchor.mnemonic"\."$anchor.identityColumnName" = timepoints."$anchor.identityColumnName";
- \$$query\$$
- LANGUAGE SQL;
+
+\$$\$$ LANGUAGE SQL;
 ~*/
         }
     }
