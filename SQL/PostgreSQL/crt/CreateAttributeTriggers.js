@@ -37,7 +37,6 @@ RETURNS TRIGGER
 AS \$$\$$
     DECLARE statementType char(1);
     BEGIN
-        -- Custom logic to insert data into the underlying tables.
         statementType := (
         SELECT
             CASE
